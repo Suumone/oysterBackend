@@ -23,7 +23,7 @@ func main() {
 	defer closeMongoDBConnection()
 
 	http.HandleFunc("/createMentor", createMentor)
-	err := http.ListenAndServe(":3333", nil)
+	err := http.ListenAndServe(os.Getenv("port"), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
