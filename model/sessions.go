@@ -51,8 +51,8 @@ type SessionResponse struct {
 	Status              string             `json:"status"`
 	StatusForMentee     string             `json:"statusForMentee"`
 	StatusForMentor     string             `json:"statusForMentor"`
-	PaymentDetails      string             `json:"paymentDetails,omitempty"`
-	MeetingLink         string             `json:"meetingLink,omitempty"`
+	PaymentDetails      string             `json:"paymentDetails"`
+	MeetingLink         string             `json:"meetingLink"`
 	MenteeReview        string             `json:"menteeReview,omitempty"`
 	MenteeRating        int                `json:"menteeRating,omitempty"`
 }

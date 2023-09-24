@@ -226,6 +226,8 @@ func setSessionDetails(session *model.Session) error {
 	session.MeetingLink = mentor.MeetingLink
 	if mentor.Prices != nil {
 		session.PaymentDetails = mentor.Prices[0].Price
+	} else {
+		session.PaymentDetails = "free"
 	}
 	session.SessionStatus = model.PendingByMentor
 	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
@@ -291,6 +293,10 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	err := parseJSONRequest(r, &mentorSession)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
+		return
+	}
+	if mentorSession.NewSessionTimeStart == nil || mentorSession.SessionId.IsZero() {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Invalid json request")
 		return
 	}
 	user, err := database.GetUserByID(userSession.UserId)

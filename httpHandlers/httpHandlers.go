@@ -214,8 +214,8 @@ func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	userState := database.GetCurrentState(userSession.UserId)
-	if utils.IsEmptyStruct(userState) {
+	userState, err := database.GetCurrentState(userSession.UserId)
+	if err != nil {
 		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
