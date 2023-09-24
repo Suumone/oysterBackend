@@ -459,7 +459,7 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 	return nil
 }
 
-func GetCurrentState(userId primitive.ObjectID) model.UserState {
+func GetCurrentState(userId primitive.ObjectID) (*model.UserState, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(UserCollectionName)
@@ -467,14 +467,10 @@ func GetCurrentState(userId primitive.ObjectID) model.UserState {
 	var user model.UserState
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			log.Printf("User(%s) not found\n", userId)
-		} else {
-			log.Printf("Failed to find document: %v\n", err)
-		}
-		return model.UserState{}
+		handleFindError(err, userId.Hex(), "user")
+		return nil, err
 	}
-	return user
+	return &user, nil
 }
 
 func UpdateUserState(userId primitive.ObjectID) error {
