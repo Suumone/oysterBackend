@@ -24,7 +24,8 @@ func HandleCreateMentor(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetMentors(w http.ResponseWriter, r *http.Request) {
-	users := database.GetMentorsFromDB()
+	queryParameters := r.URL.Query()
+	users := database.GetMentorsFromDB(queryParameters)
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 

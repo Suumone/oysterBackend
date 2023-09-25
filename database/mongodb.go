@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
+	"net/url"
 	"os"
 	"oysterProject/model"
 	"time"
@@ -15,7 +16,7 @@ import (
 var MongoDBClient *mongo.Client
 
 func ConnectToMongoDB() *mongo.Client {
-	uri := os.Getenv("dbAddress")
+	uri := os.Getenv("DB_ADDRESS")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	MongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
@@ -49,9 +50,9 @@ func SaveMentorInDB(user model.Users) (string, error) {
 	return doc.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func GetMentorsFromDB() []model.Users {
+func GetMentorsFromDB(params url.Values) []model.Users {
 	collection := MongoDBClient.Database("Oyster").Collection("users")
-	filter := bson.M{"mentor": true}
+	filter := getFilterQueryFromUrlParams(params)
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
 		log.Printf("Failed to find documents: %v\n", err)
@@ -71,6 +72,16 @@ func GetMentorsFromDB() []model.Users {
 		log.Printf("Cursor error: %v", err)
 	}
 	return users
+}
+
+func getFilterQueryFromUrlParams(params url.Values) bson.M {
+	filter := bson.M{}
+	filter["mentor"] = true
+	for key, values := range params {
+		filter[key] = bson.M{"$all": values}
+	}
+	log.Printf("MongoDB filter:%s\n", filter)
+	return filter
 }
 
 func GetMentorByIDFromDB(id string) model.Users {
