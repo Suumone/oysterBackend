@@ -12,6 +12,7 @@ import (
 func main() {
 	log.Println("Application started")
 	database.MongoDBClient = database.ConnectToMongoDB()
+	database.MongoDBOyster = database.MongoDBClient.Database("Oyster")
 	defer database.CloseMongoDBConnection(database.MongoDBClient)
 
 	r := chi.NewRouter()

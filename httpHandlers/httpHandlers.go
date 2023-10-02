@@ -39,6 +39,16 @@ func HandleGetMentorByID(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, mentor)
 }
 
+func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userWithReviews := database.GetMentorReviewsByIDFromDB(id)
+	if utils.IsEmptyStruct(userWithReviews) {
+		WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, userWithReviews)
+}
+
 func HandleUpdateMentor(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var payload model.Users
