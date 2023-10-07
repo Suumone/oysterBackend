@@ -24,6 +24,8 @@ type Users struct {
 	MentorsTopics          []MentorsTopics      `json:"mentorsTopics" bson:"mentorsTopics,omitempty"`
 	Price                  string               `json:"price" bson:"price,omitempty"`
 	IndustryExpertise      []string             `json:"industryExpertise" bson:"industryExpertise,omitempty"`
+	Password               string               `json:"password,omitempty" bson:"password,omitempty"`
+	AccessToken            string               `json:"accesstoken,omitempty" bson:"accesstoken,omitempty"`
 }
 
 type CountryDescription struct {
