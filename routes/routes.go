@@ -17,4 +17,11 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Route("/updateMentor/{id}", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleUpdateMentor)
 	})
+
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/", httpHandlers.HandleEmailPassAuth)
+		r.Get("/google", httpHandlers.HandleGoogleAuth)
+		r.Get("/google/callback", httpHandlers.HandleAuthCallback)
+	})
+	r.Post("/login", httpHandlers.LoginHandler)
 }

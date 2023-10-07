@@ -16,7 +16,6 @@ import (
 
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
-var Context context.Context
 
 func ConnectToMongoDB() *mongo.Client {
 	uri := os.Getenv("DB_ADDRESS")
@@ -35,7 +34,7 @@ func ConnectToMongoDB() *mongo.Client {
 	return MongoClient
 }
 
-func CloseMongoDBConnection(mongoDB *mongo.Client) {
+func CloseMongoDBConnection() {
 	if err := MongoDBClient.Disconnect(context.Background()); err != nil {
 		log.Fatalf("Failed to disconnect from MongoDB: %v", err)
 	}
