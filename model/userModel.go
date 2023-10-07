@@ -22,20 +22,22 @@ type Users struct {
 	AreaOfExperience       string               `json:"areaOfExperience" bson:"areaOfExperience,omitempty"`
 	CountryDescription     []CountryDescription `json:"countryDescription" bson:"countryDescription,omitempty"`
 	MentorsTopics          []MentorsTopics      `json:"mentorsTopics" bson:"mentorsTopics,omitempty"`
-	Price                  string               `json:"price" bson:"price,omitempty"`
+	Prices                 []Price              `json:"prices" bson:"prices,omitempty"`
 	IndustryExpertise      []string             `json:"industryExpertise" bson:"industryExpertise,omitempty"`
 	Password               string               `json:"password,omitempty" bson:"password,omitempty"`
-	AccessToken            string               `json:"accesstoken,omitempty" bson:"accesstoken,omitempty"`
+	AccessToken            string               `json:"accessToken,omitempty" bson:"accessToken,omitempty"`
 }
 
 type CountryDescription struct {
 	Country     string `json:"country" bson:"country,omitempty"`
 	Description string `json:"description" bson:"description,omitempty"`
-	Order       int    `json:"order" bson:"order,omitempty"`
 }
 
 type MentorsTopics struct {
 	Topic       string `json:"topic" bson:"topic,omitempty"`
 	Description string `json:"description" bson:"description,omitempty"`
-	Order       int    `json:"order" bson:"order,omitempty"`
+}
+
+type Price struct {
+	Price string `json:"price" bson:"price,omitempty"`
 }

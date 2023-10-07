@@ -64,6 +64,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.Password = string(hashedPassword)
+	user.Mentor = false
 
 	ctx, cancel := withTimeout(context.Background(), dbTimeout)
 	defer cancel()
@@ -175,13 +176,14 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	err = collection.FindOne(ctx, filter).Decode(&result)
 	if errors.Is(err, mongo.ErrNoDocuments) {
+		userInfo.Mentor = false
 		_, err = collection.InsertOne(ctx, userInfo)
 		if err != nil {
-			http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Database insert error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Database search error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

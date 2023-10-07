@@ -6,39 +6,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"net/url"
-	"os"
 	"oysterProject/model"
-	"time"
 )
 
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
-
-func ConnectToMongoDB() *mongo.Client {
-	uri := os.Getenv("DB_ADDRESS")
-	Context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	MongoClient, err := mongo.Connect(Context, options.Client().ApplyURI(uri))
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = MongoClient.Ping(Context, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println("Connected to MongoDB!")
-	return MongoClient
-}
-
-func CloseMongoDBConnection() {
-	if err := MongoDBClient.Disconnect(context.Background()); err != nil {
-		log.Fatalf("Failed to disconnect from MongoDB: %v", err)
-	}
-}
 
 func SaveMentorInDB(user model.Users) (string, error) {
 	collection := MongoDBOyster.Collection("users")
@@ -107,61 +81,7 @@ func GetMentorReviewsByIDFromDB(id string) model.UserWithReviews {
 	usersColl := MongoDBOyster.Collection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
-	pipeline := bson.A{
-		bson.D{{"$match", bson.D{{"_id", idToFind}}}},
-		bson.D{
-			{"$lookup",
-				bson.D{
-					{"from", "reviews"},
-					{"localField", "_id"},
-					{"foreignField", "user"},
-					{"as", "reviews"},
-				},
-			},
-		},
-		bson.D{{"$unwind", bson.D{{"path", "$reviews"}}}},
-		bson.D{
-			{"$lookup",
-				bson.D{
-					{"from", "users"},
-					{"localField", "reviews.reviewer"},
-					{"foreignField", "_id"},
-					{"as", "reviewerInfo"},
-				},
-			},
-		},
-		bson.D{{"$unwind", bson.D{{"path", "$reviewerInfo"}}}},
-		bson.D{
-			{"$project",
-				bson.D{
-					{"id", "$user"},
-					{"reviews",
-						bson.D{
-							{"review", "$reviews.review"},
-							{"rating", "$reviews.rating"},
-							{"date", "$reviews.date"},
-							{"reviewer",
-								bson.D{
-									{"id", "$reviewerInfo._id"},
-									{"name", "$reviewerInfo.name"},
-									{"jobTitle", "$reviewerInfo.jobTitle"},
-									{"profileImage", "$reviewerInfo.profileImage"},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		bson.D{
-			{"$group",
-				bson.D{
-					{"_id", "$_id"},
-					{"reviews", bson.D{{"$push", "$reviews"}}},
-				},
-			},
-		},
-	}
+	pipeline := GetMentorListPipeline(idToFind)
 	cursor, err := usersColl.Aggregate(ctx, pipeline)
 	if err != nil {
 		return model.UserWithReviews{}
