@@ -17,6 +17,7 @@ import (
 	"os"
 	"oysterProject/database"
 	"oysterProject/model"
+	"strings"
 	"time"
 )
 
@@ -43,12 +44,45 @@ type Oauth2User struct {
 	Email string `json:"email" bson:"email"`
 }
 
-func getCollection(collectionName string) *mongo.Collection {
-	return database.MongoDBOyster.Collection(collectionName)
-}
-
 func withTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, d)
+}
+
+func JWTMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := strings.Split(r.Header.Get("Authorization"), "Bearer ")
+		if len(authHeader) != 2 {
+			http.Error(w, "Missing or malformed JWT", http.StatusForbidden)
+			return
+		}
+
+		tokenStr := authHeader[1]
+		claims := &jwt.MapClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+
+		if err != nil {
+			http.Error(w, "Invalid token", http.StatusForbidden)
+			return
+		}
+
+		if !token.Valid {
+			http.Error(w, "Invalid token", http.StatusForbidden)
+			return
+		}
+
+		collection := database.GetCollection("blacklistedTokens")
+		filter := bson.M{"token": token}
+		tokenResult := collection.FindOne(context.Background(), filter)
+		if tokenResult != nil {
+			http.Error(w, "Invalid token", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +102,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := withTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	if _, err := getCollection("users").InsertOne(ctx, user); err != nil {
+	if _, err := database.GetCollection("users").InsertOne(ctx, user); err != nil {
 		http.Error(w, "Error inserting user into database", http.StatusInternalServerError)
 		return
 	}
@@ -78,15 +112,16 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	WriteJSONResponse(w, http.StatusCreated, []byte(tokenString))
+	WriteJSONResponse(w, http.StatusCreated, tokenString)
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
+func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var user model.Users
 	json.NewDecoder(r.Body).Decode(&user)
 
 	collection := database.MongoDBOyster.Collection("users")
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	var foundUser model.Users
 	filter := bson.M{"email": user.Email}
 	collection.FindOne(ctx, filter).Decode(&foundUser)
@@ -96,18 +131,19 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := generateToken(user)
+	tokenString, err := generateToken(foundUser)
 	if err != nil {
 		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, []byte(tokenString))
+	WriteJSONResponse(w, http.StatusOK, tokenString)
 }
 
 func generateToken(user model.Users) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user": user.Email,
-		"exp":  time.Now().Add(jwtExpiration).Unix(),
+		"id":    user.Id,
+		"email": user.Email,
+		"exp":   time.Now().Add(jwtExpiration).Unix(),
 	})
 
 	tokenString, _ := token.SignedString(jwtKey)
@@ -192,5 +228,33 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, []byte(tokenString))
+	WriteJSONResponse(w, http.StatusOK, tokenString)
+}
+
+func HandleLogOut(w http.ResponseWriter, r *http.Request) {
+	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
+
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusBadRequest)
+		return
+	}
+
+	expiry, _ := claims["exp"].(float64)
+	expiresAt := time.Unix(int64(expiry), 0)
+
+	collection := database.GetCollection("blacklistedTokens")
+	_, err = collection.InsertOne(context.TODO(), model.BlacklistedToken{
+		Token:     tokenStr,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	WriteJSONResponse(w, http.StatusOK, "Successfully logged out")
 }
