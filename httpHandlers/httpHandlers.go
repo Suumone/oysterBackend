@@ -1,11 +1,13 @@
 package httpHandlers
 
 import (
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
+	"strings"
 )
 
 func HandleCreateMentor(w http.ResponseWriter, r *http.Request) {
@@ -61,4 +63,25 @@ func HandleUpdateMentor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, id)
+}
+
+func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
+	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
+
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusBadRequest)
+		return
+	}
+	userId, _ := claims["id"].(string)
+
+	user := database.GetMentorByIDFromDB(userId)
+	if utils.IsEmptyStruct(user) {
+		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, user)
 }
