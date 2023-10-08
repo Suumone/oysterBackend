@@ -19,7 +19,7 @@ type Users struct {
 	Language               []string             `json:"language" bson:"language,omitempty"`
 	Skill                  []string             `json:"skill" bson:"skill,omitempty"`
 	Experience             float32              `json:"experience" bson:"experience,omitempty"`
-	AreaOfExperience       string               `json:"areaOfExperience" bson:"areaOfExperience,omitempty"`
+	AreaOfExpertise        string               `json:"areaOfExpertise" bson:"areaOfExpertise,omitempty"`
 	CountryDescription     []CountryDescription `json:"countryDescription" bson:"countryDescription,omitempty"`
 	MentorsTopics          []MentorsTopics      `json:"mentorsTopics" bson:"mentorsTopics,omitempty"`
 	Prices                 []Price              `json:"prices" bson:"prices,omitempty"`
