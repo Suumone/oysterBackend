@@ -14,6 +14,10 @@ import (
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
 
+func GetCollection(collectionName string) *mongo.Collection {
+	return MongoDBOyster.Collection(collectionName)
+}
+
 func SaveMentorInDB(user model.Users) (string, error) {
 	collection := MongoDBOyster.Collection("users")
 	doc, err := collection.InsertOne(context.TODO(), user)
