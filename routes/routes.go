@@ -23,4 +23,6 @@ func ConfigureRoutes(r *chi.Mux) {
 	})
 	r.Post("/login", httpHandlers.HandleLogin)
 	r.With(httpHandlers.JWTMiddleware).Post("/logout", httpHandlers.HandleLogOut)
+
+	r.With(httpHandlers.JWTMiddleware).Get("/myProfile", httpHandlers.HandleGetProfileByToken)
 }

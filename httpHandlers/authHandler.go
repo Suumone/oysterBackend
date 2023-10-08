@@ -17,6 +17,7 @@ import (
 	"os"
 	"oysterProject/database"
 	"oysterProject/model"
+	"oysterProject/utils"
 	"strings"
 	"time"
 )
@@ -75,8 +76,9 @@ func JWTMiddleware(next http.Handler) http.Handler {
 
 		collection := database.GetCollection("blacklistedTokens")
 		filter := bson.M{"token": token}
-		tokenResult := collection.FindOne(context.Background(), filter)
-		if tokenResult != nil {
+		var blackListedToken model.Token
+		collection.FindOne(context.Background(), filter).Decode(&blackListedToken)
+		if !utils.IsEmptyStruct(blackListedToken) {
 			http.Error(w, "Invalid token", http.StatusForbidden)
 			return
 		}
