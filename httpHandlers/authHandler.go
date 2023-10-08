@@ -8,6 +8,7 @@ import (
 	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -104,10 +105,12 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := withTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	if _, err := database.GetCollection("users").InsertOne(ctx, user); err != nil {
+	doc, err := database.GetCollection("users").InsertOne(ctx, user)
+	if err != nil {
 		http.Error(w, "Error inserting user into database", http.StatusInternalServerError)
 		return
 	}
+	user.Id = doc.InsertedID.(primitive.ObjectID)
 
 	tokenString, err := generateToken(user)
 	if err != nil {
