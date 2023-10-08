@@ -12,9 +12,6 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Get("/", httpHandlers.HandleGetMentorByID)
 		r.Get("/getReviews", httpHandlers.HandleGetMentorReviews)
 	})
-	r.Route("/updateMentor/{id}", func(r chi.Router) {
-		r.Post("/", httpHandlers.HandleUpdateMentor)
-	})
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)
@@ -24,5 +21,8 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Post("/login", httpHandlers.HandleLogin)
 	r.With(httpHandlers.JWTMiddleware).Post("/logout", httpHandlers.HandleLogOut)
 
-	r.With(httpHandlers.JWTMiddleware).Get("/myProfile", httpHandlers.HandleGetProfileByToken)
+	r.With(httpHandlers.JWTMiddleware).Route("/myProfile", func(r chi.Router) {
+		r.Get("/", httpHandlers.HandleGetProfileByToken)
+		r.Post("/update", httpHandlers.HandleUpdateProfileByToken)
+	})
 }
