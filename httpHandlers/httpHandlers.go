@@ -3,6 +3,7 @@ package httpHandlers
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi/v5"
+	"log"
 	"net/http"
 	"oysterProject/database"
 	"oysterProject/model"
@@ -29,6 +30,17 @@ func HandleGetMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	users := database.GetMentorsFromDB(queryParameters)
 	WriteJSONResponse(w, http.StatusOK, users)
+}
+
+func HandleGetMentorListFilters(w http.ResponseWriter, r *http.Request) {
+	listOfFilters, err := database.GetListOfFilterFields()
+	if err != nil {
+		log.Printf("Error getting fields filter: %v\n", err)
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+		return
+	}
+
+	WriteJSONResponse(w, http.StatusOK, listOfFilters)
 }
 
 func HandleGetMentorByID(w http.ResponseWriter, r *http.Request) {

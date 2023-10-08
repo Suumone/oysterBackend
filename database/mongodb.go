@@ -114,3 +114,40 @@ func UpdateMentorInDB(user model.Users, id string) error {
 	log.Printf("User(id: %s) updated successfully!\n", id)
 	return nil
 }
+
+func GetListOfFilterFields() ([]map[string]interface{}, error) {
+	fields := make([]map[string]interface{}, 0)
+	filterColl := GetCollection("fieldInfo")
+	usersColl := GetCollection("users")
+	cursor, err := filterColl.Find(context.TODO(), bson.D{})
+	if err != nil {
+		return fields, err
+	}
+	var metas []map[string]interface{}
+	err = cursor.All(context.TODO(), &metas)
+	if err != nil {
+		return fields, err
+	}
+
+	for _, meta := range metas {
+		fieldName := meta["fieldName"].(string)
+		fieldType := meta["type"].(string)
+
+		fieldData := map[string]interface{}{
+			"fieldName": fieldName,
+			"type":      fieldType,
+		}
+
+		if fieldType == "dropdown" {
+			values, err := usersColl.Distinct(context.TODO(), fieldName, bson.D{})
+			if err != nil {
+				return fields, err
+			}
+			fieldData["values"] = values
+		}
+
+		fields = append(fields, fieldData)
+	}
+
+	return fields, nil
+}
