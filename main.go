@@ -16,6 +16,7 @@ func main() {
 	defer database.CloseMongoDBConnection()
 
 	r := chi.NewRouter()
+	routes.ConfigureCors(r)
 	routes.ConfigureRoutes(r)
 	server := &http.Server{
 		Addr:    ":" + os.Getenv("PORT"),

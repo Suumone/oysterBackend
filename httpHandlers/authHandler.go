@@ -71,7 +71,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		}
 
 		if !token.Valid {
-			http.Error(w, "Invalid token", http.StatusForbidden)
+			http.Error(w, "Expired token", http.StatusForbidden)
 			return
 		}
 
