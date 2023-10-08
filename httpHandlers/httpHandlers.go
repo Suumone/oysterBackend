@@ -51,27 +51,8 @@ func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, userWithReviews)
 }
 
-func HandleUpdateMentor(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	var payload model.Users
-	if err := ParseJSONRequest(w, r, &payload); err != nil {
-		return
-	}
-
-	if err := database.UpdateMentorInDB(payload, id); err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, id)
-}
-
 func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
-	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
-
-	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
+	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
 		return
@@ -84,4 +65,35 @@ func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, user)
+}
+
+func HandleUpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		http.Error(w, "Invalid token", http.StatusBadRequest)
+		return
+	}
+	userId, _ := claims["id"].(string)
+
+	var userForUpdate model.Users
+	if err := ParseJSONRequest(w, r, &userForUpdate); err != nil {
+		return
+	}
+	utils.NormalizeSocialLinks(&userForUpdate)
+
+	if err := database.UpdateMentorInDB(userForUpdate, userId); err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, "User updated")
+}
+
+func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
+	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
+
+	claims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	return claims, err
 }
