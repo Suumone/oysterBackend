@@ -5,7 +5,6 @@ import (
 	"github.com/rs/cors"
 	"os"
 	"oysterProject/httpHandlers"
-	"strings"
 )
 
 func ConfigureRoutes(r *chi.Mux) {
@@ -33,7 +32,7 @@ func ConfigureRoutes(r *chi.Mux) {
 
 func ConfigureCors(r *chi.Mux) {
 	corsConfig := cors.New(cors.Options{
-		AllowedOrigins:   strings.Split(os.Getenv("ALLOWED_ORIGINS"), ";"),
+		AllowedOrigins:   []string{os.Getenv("ALLOWED_ORIGINS")},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
