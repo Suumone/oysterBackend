@@ -9,6 +9,9 @@ import (
 	"log"
 	"net/url"
 	"oysterProject/model"
+	"strconv"
+	"strings"
+	"unicode"
 )
 
 var MongoDBClient *mongo.Client
@@ -57,10 +60,30 @@ func getFilterQueryFromUrlParams(params url.Values) bson.M {
 	filter := bson.M{}
 	filter["mentor"] = true
 	for key, values := range params {
-		filter[key] = bson.M{"$all": values}
+		if key == "experience" {
+			filter[key] = bson.M{"$gt": convertStringToNumber(values[0])}
+		} else {
+			filter[key] = bson.M{"$all": values}
+		}
 	}
 	log.Printf("MongoDB filter:%s\n", filter)
 	return filter
+}
+
+func convertStringToNumber(s string) float32 {
+	cleanString := strings.Map(func(r rune) rune {
+		if unicode.IsDigit(r) || r == '.' || r == '-' {
+			return r
+		}
+		return -1
+	}, s)
+
+	f, err := strconv.ParseFloat(cleanString, 32)
+	if err != nil {
+		return 0
+	}
+
+	return float32(f)
 }
 
 func GetMentorByIDFromDB(id string) model.Users {
@@ -116,38 +139,54 @@ func UpdateMentorInDB(user model.Users, id string) error {
 }
 
 func GetListOfFilterFields() ([]map[string]interface{}, error) {
-	fields := make([]map[string]interface{}, 0)
+	var fields []map[string]interface{}
 	filterColl := GetCollection("fieldInfo")
-	usersColl := GetCollection("users")
 	cursor, err := filterColl.Find(context.TODO(), bson.D{})
 	if err != nil {
-		return fields, err
+		return nil, err
 	}
+
 	var metas []map[string]interface{}
-	err = cursor.All(context.TODO(), &metas)
-	if err != nil {
-		return fields, err
+	if err = cursor.All(context.TODO(), &metas); err != nil {
+		return nil, err
 	}
 
 	for _, meta := range metas {
-		fieldName := meta["fieldName"].(string)
-		fieldType := meta["type"].(string)
-
-		fieldData := map[string]interface{}{
-			"fieldName": fieldName,
-			"type":      fieldType,
+		fieldData, err := extractFieldDataFromMeta(meta)
+		if err != nil {
+			return nil, err
 		}
-
-		if fieldType == "dropdown" {
-			values, err := usersColl.Distinct(context.TODO(), fieldName, bson.D{})
-			if err != nil {
-				return fields, err
-			}
-			fieldData["values"] = values
-		}
-
 		fields = append(fields, fieldData)
 	}
 
 	return fields, nil
+}
+
+func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface{}, error) {
+	fieldName := meta["fieldName"].(string)
+	fieldType := meta["type"].(string)
+	fieldStorage := meta["fieldStorage"].(string)
+
+	valuesFromDb, ok := meta["values"].(primitive.A)
+	if !ok {
+		valuesFromDb = primitive.A{}
+	}
+
+	fieldData := map[string]interface{}{
+		"fieldName":    fieldName,
+		"type":         fieldType,
+		"fieldStorage": fieldStorage,
+		"values":       valuesFromDb,
+	}
+
+	if fieldType == "dropdown" && len(valuesFromDb) == 0 {
+		usersColl := GetCollection("users")
+		values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
+		if err != nil {
+			return nil, err
+		}
+		fieldData["values"] = values
+	}
+
+	return fieldData, nil
 }
