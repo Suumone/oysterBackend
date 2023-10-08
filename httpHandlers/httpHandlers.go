@@ -2,7 +2,6 @@ package httpHandlers
 
 import (
 	"github.com/dgrijalva/jwt-go"
-	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 	"oysterProject/database"
@@ -10,21 +9,6 @@ import (
 	"oysterProject/utils"
 	"strings"
 )
-
-func HandleCreateMentor(w http.ResponseWriter, r *http.Request) {
-	var payload model.Users
-	if err := ParseJSONRequest(w, r, &payload); err != nil {
-		return
-	}
-	utils.NormalizeSocialLinks(&payload)
-
-	insertedID, err := database.SaveMentorInDB(payload)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error saving user to MongoDB")
-		return
-	}
-	WriteJSONResponse(w, http.StatusCreated, insertedID)
-}
 
 func HandleGetMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
@@ -43,8 +27,10 @@ func HandleGetMentorListFilters(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, listOfFilters)
 }
 
-func HandleGetMentorByID(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+func HandleGetMentor(w http.ResponseWriter, r *http.Request) {
+	queryParameters := r.URL.Query()
+	id := queryParameters.Get("id")
+
 	mentor := database.GetMentorByIDFromDB(id)
 	if utils.IsEmptyStruct(mentor) {
 		WriteMessageResponse(w, http.StatusNotFound, "Mentor not found")
@@ -54,13 +40,24 @@ func HandleGetMentorByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	userWithReviews := database.GetMentorReviewsByIDFromDB(id)
-	if utils.IsEmptyStruct(userWithReviews) {
-		WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
-		return
+	queryParameters := r.URL.Query()
+	mentorId := queryParameters.Get("mentorId")
+	if len(mentorId) > 0 {
+		userWithReviews := database.GetMentorReviewsByIDFromDB(mentorId)
+		if utils.IsEmptyStruct(userWithReviews) {
+			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
+			return
+		}
+		WriteJSONResponse(w, http.StatusOK, userWithReviews)
+	} else {
+		reviews := database.GetReviewsForFrontPageFromDB()
+		if utils.IsEmptyStruct(reviews) {
+			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
+			return
+		}
+
+		WriteJSONResponse(w, http.StatusOK, reviews)
 	}
-	WriteJSONResponse(w, http.StatusOK, userWithReviews)
 }
 
 func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {

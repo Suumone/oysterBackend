@@ -19,3 +19,12 @@ type UserWithReviews struct {
 		Date   time.Time `json:"date"`
 	} `json:"reviews"`
 }
+
+type ReviewsForFrontPage struct {
+	Name         string    `json:"name"`
+	JobTitle     string    `json:"jobTitle,omitempty"`
+	ProfileImage string    `json:"profileImage,omitempty"`
+	Review       string    `json:"review"`
+	Rating       int       `json:"rating,omitempty"`
+	Date         time.Time `json:"date,omitempty"`
+}

@@ -124,7 +124,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var user model.Users
 	json.NewDecoder(r.Body).Decode(&user)
 
-	collection := database.MongoDBOyster.Collection("users")
+	collection := database.GetCollection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var foundUser model.Users
@@ -211,18 +211,19 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	filter := bson.M{"email": userInfo.Email}
 	var result model.Users
-	collection := database.MongoDBOyster.Collection("users")
+	collection := database.GetCollection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
 	err = collection.FindOne(ctx, filter).Decode(&result)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.Mentor = false
-		_, err = collection.InsertOne(ctx, userInfo)
+		doc, err := collection.InsertOne(ctx, userInfo)
 		if err != nil {
 			http.Error(w, "Database insert error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		userInfo.Id = doc.InsertedID.(primitive.ObjectID)
 	} else if err != nil {
 		http.Error(w, "Database search error: "+err.Error(), http.StatusInternalServerError)
 		return

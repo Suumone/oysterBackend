@@ -8,13 +8,10 @@ import (
 )
 
 func ConfigureRoutes(r *chi.Mux) {
-	r.Post("/createMentor", httpHandlers.HandleCreateMentor)
 	r.Get("/getMentorList", httpHandlers.HandleGetMentors)
 	r.Get("/getMentorListFilters", httpHandlers.HandleGetMentorListFilters)
-	r.Route("/getMentor/{id}", func(r chi.Router) {
-		r.Get("/", httpHandlers.HandleGetMentorByID)
-		r.Get("/getReviews", httpHandlers.HandleGetMentorReviews)
-	})
+	r.Get("/getMentor", httpHandlers.HandleGetMentor)
+	r.Get("/getReviews", httpHandlers.HandleGetMentorReviews)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)

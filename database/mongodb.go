@@ -11,6 +11,7 @@ import (
 	"oysterProject/model"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -105,7 +106,28 @@ func GetMentorByIDFromDB(id string) model.Users {
 
 func GetMentorReviewsByIDFromDB(id string) model.UserWithReviews {
 	ctx := context.Background()
-	usersColl := MongoDBOyster.Collection("users")
+	usersColl := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(id)
+
+	pipeline := GetMentorListPipeline(idToFind)
+	cursor, err := usersColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		return model.UserWithReviews{}
+	}
+	defer cursor.Close(ctx)
+	var user model.UserWithReviews
+	for cursor.Next(context.Background()) {
+		if err := cursor.Decode(&user); err != nil {
+			log.Printf("Failed to decode document: %v", err)
+		}
+	}
+
+	return user
+}
+
+func GetFrontPageReviews(id string) model.UserWithReviews {
+	ctx := context.Background()
+	usersColl := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
 	pipeline := GetMentorListPipeline(idToFind)
@@ -189,4 +211,27 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 	}
 
 	return fieldData, nil
+}
+
+func GetReviewsForFrontPageFromDB() []model.ReviewsForFrontPage {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	reviewColl := GetCollection("reviews")
+	pipeline := GetFrontPageReviewsPipeline()
+	cursor, err := reviewColl.Aggregate(ctx, pipeline)
+	if err != nil {
+		return []model.ReviewsForFrontPage{}
+	}
+	defer cursor.Close(ctx)
+
+	var result []model.ReviewsForFrontPage
+	for cursor.Next(ctx) {
+		var review model.ReviewsForFrontPage
+		err := cursor.Decode(&review)
+		if err != nil {
+			return []model.ReviewsForFrontPage{}
+		}
+		result = append(result, review)
+	}
+	return result
 }

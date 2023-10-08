@@ -3,6 +3,7 @@ package database
 import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
@@ -60,6 +61,30 @@ func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
 				},
 			},
 		},
+	}
+	return pipeline
+}
+
+func GetFrontPageReviewsPipeline() mongo.Pipeline {
+	pipeline := mongo.Pipeline{
+		{{"$match", bson.D{
+			{"forFrontPage", true},
+		}}},
+		{{"$lookup", bson.D{
+			{"from", "users"},
+			{"localField", "reviewer"},
+			{"foreignField", "_id"},
+			{"as", "reviewerInfo"},
+		}}},
+		{{"$unwind", "$reviewerInfo"}},
+		{{"$project", bson.D{
+			{"review", 1},
+			{"rating", 1},
+			{"date", 1},
+			{"name", "$reviewerInfo.name"},
+			{"jobTitle", "$reviewerInfo.jobTitle"},
+			{"profileImage", "$reviewerInfo.profileImage"},
+		}}},
 	}
 	return pipeline
 }
