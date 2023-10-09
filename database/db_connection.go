@@ -9,21 +9,21 @@ import (
 	"time"
 )
 
-func ConnectToMongoDB() *mongo.Client {
+func ConnectToMongoDB() (*mongo.Client, error) {
 	uri := os.Getenv("DB_ADDRESS")
-	Context, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	MongoClient, err := mongo.Connect(Context, options.Client().ApplyURI(uri))
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	err = MongoClient.Ping(Context, nil)
+	err = mongoClient.Ping(ctx, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	log.Println("Connected to MongoDB!")
-	return MongoClient
+	return mongoClient, nil
 }
 
 func CloseMongoDBConnection() {

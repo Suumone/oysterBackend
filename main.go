@@ -11,7 +11,11 @@ import (
 
 func main() {
 	log.Println("Application started")
-	database.MongoDBClient = database.ConnectToMongoDB()
+	client, err := database.ConnectToMongoDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	database.MongoDBClient = client
 	database.MongoDBOyster = database.MongoDBClient.Database("Oyster")
 	defer database.CloseMongoDBConnection()
 

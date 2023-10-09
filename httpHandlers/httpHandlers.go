@@ -12,7 +12,7 @@ import (
 
 func HandleGetMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	users := database.GetMentorsFromDB(queryParameters)
+	users := database.GetMentors(queryParameters)
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
@@ -31,7 +31,7 @@ func HandleGetMentor(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
 
-	mentor := database.GetMentorByIDFromDB(id)
+	mentor := database.GetUserByID(id)
 	if utils.IsEmptyStruct(mentor) {
 		WriteMessageResponse(w, http.StatusNotFound, "Mentor not found")
 		return
@@ -43,14 +43,14 @@ func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
-		userWithReviews := database.GetMentorReviewsByIDFromDB(mentorId)
+		userWithReviews := database.GetMentorReviewsByID(mentorId)
 		if utils.IsEmptyStruct(userWithReviews) {
 			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
 			return
 		}
 		WriteJSONResponse(w, http.StatusOK, userWithReviews)
 	} else {
-		reviews := database.GetReviewsForFrontPageFromDB()
+		reviews := database.GetReviewsForFrontPage()
 		if utils.IsEmptyStruct(reviews) {
 			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
 			return
@@ -68,7 +68,7 @@ func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	}
 	userId, _ := claims["id"].(string)
 
-	user := database.GetMentorByIDFromDB(userId)
+	user := database.GetUserByID(userId)
 	if utils.IsEmptyStruct(user) {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
@@ -84,13 +84,13 @@ func HandleUpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	}
 	userId, _ := claims["id"].(string)
 
-	var userForUpdate model.Users
+	var userForUpdate model.User
 	if err := ParseJSONRequest(w, r, &userForUpdate); err != nil {
 		return
 	}
 	utils.NormalizeSocialLinks(&userForUpdate)
 
-	if err := database.UpdateMentorInDB(userForUpdate, userId); err != nil {
+	if err := database.UpdateMentor(userForUpdate, userId); err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -89,7 +88,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 }
 
 func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
-	var user model.Users
+	var user model.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, "Error decoding request", http.StatusBadRequest)
 		return
@@ -102,15 +101,13 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Password = string(hashedPassword)
 	user.Mentor = false
+	user.IsNewUser = true
 
-	ctx, cancel := withTimeout(context.Background(), dbTimeout)
-	defer cancel()
-	doc, err := database.GetCollection("users").InsertOne(ctx, user)
+	user.Id, err = database.SaveMentor(user)
 	if err != nil {
 		http.Error(w, "Error inserting user into database", http.StatusInternalServerError)
 		return
 	}
-	user.Id = doc.InsertedID.(primitive.ObjectID)
 
 	tokenString, err := generateToken(user)
 	if err != nil {
@@ -121,15 +118,14 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var user model.Users
+	var user model.User
 	json.NewDecoder(r.Body).Decode(&user)
 
-	collection := database.GetCollection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	var foundUser model.Users
-	filter := bson.M{"email": user.Email}
-	collection.FindOne(ctx, filter).Decode(&foundUser)
+	foundUser, err := database.GetUserByEmail(user)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		return
+	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password)); err != nil {
 		WriteJSONResponse(w, http.StatusUnauthorized, "Wrong password")
@@ -144,7 +140,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, tokenString)
 }
 
-func generateToken(user model.Users) (string, error) {
+func generateToken(user model.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":    user.Id,
 		"email": user.Email,
@@ -176,22 +172,22 @@ func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func getUserDataFromGoogle(code string) (model.Users, error) {
+func getUserDataFromGoogle(code string) (model.User, error) {
 	token, err := conf.Exchange(context.Background(), code)
 	if err != nil {
-		return model.Users{}, err
+		return model.User{}, err
 	}
 	response, err := http.Get(oauthGoogleUrlAPI + token.AccessToken)
 	if err != nil {
-		return model.Users{}, err
+		return model.User{}, err
 	}
 	defer response.Body.Close()
 
 	var oauth2User Oauth2User
 	if err := json.NewDecoder(response.Body).Decode(&oauth2User); err != nil {
-		return model.Users{}, err
+		return model.User{}, err
 	}
-	return model.Users{Email: oauth2User.Email, Username: oauth2User.Name}, nil
+	return model.User{Email: oauth2User.Email, Username: oauth2User.Name}, nil
 }
 
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
@@ -209,21 +205,15 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := bson.M{"email": userInfo.Email}
-	var result model.Users
-	collection := database.GetCollection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	defer cancel()
-
-	err = collection.FindOne(ctx, filter).Decode(&result)
+	userInfo, err = database.GetUserByEmail(userInfo)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.Mentor = false
-		doc, err := collection.InsertOne(ctx, userInfo)
+		userInfo.IsNewUser = true
+		userInfo.Id, err = database.SaveMentor(userInfo)
 		if err != nil {
 			http.Error(w, "Database insert error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		userInfo.Id = doc.InsertedID.(primitive.ObjectID)
 	} else if err != nil {
 		http.Error(w, "Database search error: "+err.Error(), http.StatusInternalServerError)
 		return

@@ -2,7 +2,7 @@ package model
 
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
-type Users struct {
+type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
 	Username               string               `json:"name" bson:"name,omitempty"`
 	ProfileImage           string               `json:"profileImage" bson:"profileImage,omitempty"`
@@ -13,7 +13,7 @@ type Users struct {
 	InstagramLink          string               `json:"instagramLink" bson:"instagramLink,omitempty"`
 	LinkedInLink           string               `json:"linkedinLink" bson:"linkedinLink,omitempty"`
 	CalendlyLink           string               `json:"calendlyLink" bson:"calendlyLink,omitempty"`
-	Mentor                 bool                 `json:"mentor" bson:"mentor,omitempty"`
+	Mentor                 bool                 `json:"mentor" bson:"mentor"`
 	WelcomeText            string               `json:"welcomeText" bson:"welcomeText,omitempty"`
 	ProfessionalExperience string               `json:"professionalExperience" bson:"professionalExperience,omitempty"`
 	Language               []string             `json:"language" bson:"language,omitempty"`
@@ -25,6 +25,7 @@ type Users struct {
 	Prices                 []Price              `json:"prices" bson:"prices,omitempty"`
 	IndustryExpertise      []string             `json:"industryExpertise" bson:"industryExpertise,omitempty"`
 	Password               string               `json:"-" bson:"password,omitempty"`
+	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
 }
 
 type CountryDescription struct {

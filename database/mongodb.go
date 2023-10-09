@@ -18,22 +18,30 @@ import (
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
 
+const dbTimeout = 5 * time.Second
+
+func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, dbTimeout)
+}
+
 func GetCollection(collectionName string) *mongo.Collection {
 	return MongoDBOyster.Collection(collectionName)
 }
 
-func SaveMentorInDB(user model.Users) (string, error) {
-	collection := MongoDBOyster.Collection("users")
-	doc, err := collection.InsertOne(context.TODO(), user)
+func SaveMentor(user model.User) (primitive.ObjectID, error) {
+	collection := GetCollection("users")
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	doc, err := collection.InsertOne(ctx, user)
 	if err != nil {
-		log.Println(err)
-		return "", err
+		log.Printf("Error inserting user: %v\n", err)
+		return primitive.ObjectID{}, err
 	}
 	log.Printf("User(name: %s, insertedID: %s) inserted successfully\n", user.Username, doc.InsertedID)
-	return doc.InsertedID.(primitive.ObjectID).Hex(), nil
+	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentorsFromDB(params url.Values) []model.Users {
+func GetMentors(params url.Values) []model.User {
 	collection := MongoDBOyster.Collection("users")
 	filter := getFilterQueryFromUrlParams(params)
 	cursor, err := collection.Find(context.Background(), filter)
@@ -43,9 +51,9 @@ func GetMentorsFromDB(params url.Values) []model.Users {
 	}
 	defer cursor.Close(context.Background())
 
-	var users []model.Users
+	var users []model.User
 	for cursor.Next(context.Background()) {
-		var user model.Users
+		var user model.User
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
 		}
@@ -87,11 +95,11 @@ func convertStringToNumber(s string) float32 {
 	return float32(f)
 }
 
-func GetMentorByIDFromDB(id string) model.Users {
-	collection := MongoDBOyster.Collection("users")
+func GetUserByID(id string) model.User {
+	collection := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": idToFind}
-	var user model.Users
+	var user model.User
 	err := collection.FindOne(context.Background(), filter).Decode(&user)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -99,13 +107,14 @@ func GetMentorByIDFromDB(id string) model.Users {
 		} else {
 			log.Printf("Failed to find document: %v\n", err)
 		}
-		return model.Users{}
+		return model.User{}
 	}
 	return user
 }
 
-func GetMentorReviewsByIDFromDB(id string) model.UserWithReviews {
-	ctx := context.Background()
+func GetMentorReviewsByID(id string) model.UserWithReviews {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
 	usersColl := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
@@ -125,33 +134,15 @@ func GetMentorReviewsByIDFromDB(id string) model.UserWithReviews {
 	return user
 }
 
-func GetFrontPageReviews(id string) model.UserWithReviews {
-	ctx := context.Background()
-	usersColl := GetCollection("users")
+func UpdateMentor(user model.User, id string) error {
+	user.IsNewUser = false
 	idToFind, _ := primitive.ObjectIDFromHex(id)
-
-	pipeline := GetMentorListPipeline(idToFind)
-	cursor, err := usersColl.Aggregate(ctx, pipeline)
-	if err != nil {
-		return model.UserWithReviews{}
-	}
-	defer cursor.Close(ctx)
-	var user model.UserWithReviews
-	for cursor.Next(context.Background()) {
-		if err := cursor.Decode(&user); err != nil {
-			log.Printf("Failed to decode document: %v", err)
-		}
-	}
-
-	return user
-}
-
-func UpdateMentorInDB(user model.Users, id string) error {
-	idToFind, _ := primitive.ObjectIDFromHex(id)
-	collection := MongoDBOyster.Collection("users")
+	collection := GetCollection("users")
 	filter := bson.M{"_id": idToFind}
 	updateOp := bson.M{"$set": user}
-	_, err := collection.UpdateOne(context.Background(), filter, updateOp)
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	_, err := collection.UpdateOne(ctx, filter, updateOp)
 	if err != nil {
 		return err
 	}
@@ -163,7 +154,9 @@ func UpdateMentorInDB(user model.Users, id string) error {
 func GetListOfFilterFields() ([]map[string]interface{}, error) {
 	var fields []map[string]interface{}
 	filterColl := GetCollection("fieldInfo")
-	cursor, err := filterColl.Find(context.TODO(), bson.D{})
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	cursor, err := filterColl.Find(ctx, bson.D{})
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +206,8 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 	return fieldData, nil
 }
 
-func GetReviewsForFrontPageFromDB() []model.ReviewsForFrontPage {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
+	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	reviewColl := GetCollection("reviews")
 	pipeline := GetFrontPageReviewsPipeline()
@@ -234,4 +227,13 @@ func GetReviewsForFrontPageFromDB() []model.ReviewsForFrontPage {
 		result = append(result, review)
 	}
 	return result
+}
+
+func GetUserByEmail(user model.User) (model.User, error) {
+	collection := GetCollection("users")
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	filter := bson.M{"email": user.Email}
+	err := collection.FindOne(ctx, filter).Decode(&user)
+	return user, err
 }

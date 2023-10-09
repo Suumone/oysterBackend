@@ -12,7 +12,7 @@ func IsEmptyStruct(input interface{}) bool {
 	return reflect.DeepEqual(input, zeroValue)
 }
 
-func NormalizeSocialLinks(user *model.Users) {
+func NormalizeSocialLinks(user *model.User) {
 	user.LinkedInLink = makeURL(user.LinkedInLink, "linkedin.com/")
 	user.InstagramLink = makeURL(user.InstagramLink, "instagram.com/")
 	user.FacebookLink = makeURL(user.FacebookLink, "facebook.com/")
