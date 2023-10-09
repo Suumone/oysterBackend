@@ -18,8 +18,8 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Get("/google", httpHandlers.HandleGoogleAuth)
 		r.Get("/google/callback", httpHandlers.HandleAuthCallback)
 	})
-	r.Post("/login", httpHandlers.HandleLogin)
-	r.With(httpHandlers.JWTMiddleware).Post("/logout", httpHandlers.HandleLogOut)
+	r.Post("/signIn", httpHandlers.HandleLogin)
+	r.With(httpHandlers.JWTMiddleware).Post("/signOut", httpHandlers.HandleLogOut)
 
 	r.With(httpHandlers.JWTMiddleware).Route("/myProfile", func(r chi.Router) {
 		r.Get("/", httpHandlers.HandleGetProfileByToken)

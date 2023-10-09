@@ -24,7 +24,6 @@ import (
 
 const (
 	oauthGoogleUrlAPI     = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
-	dbTimeout             = 5 * time.Second
 	jwtExpiration         = 7 * 24 * time.Hour
 	oauthCookieExpiration = 365 * 24 * time.Hour
 )
@@ -43,10 +42,6 @@ var (
 type Oauth2User struct {
 	Name  string `json:"name" bson:"name"`
 	Email string `json:"email" bson:"email"`
-}
-
-func withTimeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, d)
 }
 
 func JWTMiddleware(next http.Handler) http.Handler {
@@ -100,7 +95,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.Password = string(hashedPassword)
-	user.Mentor = false
+	user.IsMentor = false
 	user.IsNewUser = true
 
 	user.Id, err = database.SaveMentor(user)
@@ -207,7 +202,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err = database.GetUserByEmail(userInfo)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		userInfo.Mentor = false
+		userInfo.IsMentor = false
 		userInfo.IsNewUser = true
 		userInfo.Id, err = database.SaveMentor(userInfo)
 		if err != nil {

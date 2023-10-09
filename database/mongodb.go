@@ -43,7 +43,7 @@ func SaveMentor(user model.User) (primitive.ObjectID, error) {
 
 func GetMentors(params url.Values) []model.User {
 	collection := MongoDBOyster.Collection("users")
-	filter := getFilterQueryFromUrlParams(params)
+	filter := getFilterForMentorList(params)
 	cursor, err := collection.Find(context.Background(), filter)
 	if err != nil {
 		log.Printf("Failed to find documents: %v\n", err)
@@ -65,9 +65,10 @@ func GetMentors(params url.Values) []model.User {
 	return users
 }
 
-func getFilterQueryFromUrlParams(params url.Values) bson.M {
+func getFilterForMentorList(params url.Values) bson.M {
 	filter := bson.M{}
-	filter["mentor"] = true
+	filter["isMentor"] = true
+	filter["isApproved"] = true
 	for key, values := range params {
 		if key == "experience" {
 			filter[key] = bson.M{"$gt": convertStringToNumber(values[0])}

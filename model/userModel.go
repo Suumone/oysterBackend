@@ -13,7 +13,7 @@ type User struct {
 	InstagramLink          string               `json:"instagramLink" bson:"instagramLink,omitempty"`
 	LinkedInLink           string               `json:"linkedinLink" bson:"linkedinLink,omitempty"`
 	CalendlyLink           string               `json:"calendlyLink" bson:"calendlyLink,omitempty"`
-	Mentor                 bool                 `json:"mentor" bson:"mentor"`
+	IsMentor               bool                 `json:"isMentor" bson:"isMentor"`
 	WelcomeText            string               `json:"welcomeText" bson:"welcomeText,omitempty"`
 	ProfessionalExperience string               `json:"professionalExperience" bson:"professionalExperience,omitempty"`
 	Language               []string             `json:"language" bson:"language,omitempty"`
@@ -26,6 +26,7 @@ type User struct {
 	IndustryExpertise      []string             `json:"industryExpertise" bson:"industryExpertise,omitempty"`
 	Password               string               `json:"-" bson:"password,omitempty"`
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
+	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 }
 
 type CountryDescription struct {
