@@ -8,10 +8,11 @@ import (
 )
 
 func ConfigureRoutes(r *chi.Mux) {
-	r.Get("/getMentorList", httpHandlers.HandleGetMentors)
-	r.Get("/getMentorListFilters", httpHandlers.HandleGetMentorListFilters)
-	r.Get("/getMentor", httpHandlers.HandleGetMentor)
-	r.Get("/getReviews", httpHandlers.HandleGetMentorReviews)
+	r.Get("/getMentorList", httpHandlers.GetMentors)
+	r.Get("/getMentorListFilters", httpHandlers.GetMentorListFilters)
+	r.Get("/getMentor", httpHandlers.GetMentor)
+	r.Get("/getTopMentors", httpHandlers.GetTopMentors)
+	r.Get("/getReviews", httpHandlers.GetMentorReviews)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)
@@ -22,8 +23,8 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.With(httpHandlers.JWTMiddleware).Post("/signOut", httpHandlers.HandleLogOut)
 
 	r.With(httpHandlers.JWTMiddleware).Route("/myProfile", func(r chi.Router) {
-		r.Get("/", httpHandlers.HandleGetProfileByToken)
-		r.Post("/update", httpHandlers.HandleUpdateProfileByToken)
+		r.Get("/", httpHandlers.GetProfileByToken)
+		r.Post("/update", httpHandlers.UpdateProfileByToken)
 	})
 }
 

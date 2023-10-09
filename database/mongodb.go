@@ -42,9 +42,45 @@ func SaveMentor(user model.User) (primitive.ObjectID, error) {
 }
 
 func GetMentors(params url.Values) []model.User {
-	collection := MongoDBOyster.Collection("users")
 	filter := getFilterForMentorList(params)
-	cursor, err := collection.Find(context.Background(), filter)
+	return fetchMentors(filter)
+}
+
+func GetTopMentors() []model.User {
+	filter := getFilterForTopMentorList()
+	return fetchMentors(filter)
+}
+
+func getFilterForMentorList(params url.Values) bson.M {
+	filter := bson.M{
+		"isMentor":   true,
+		"isApproved": true,
+	}
+
+	for key, values := range params {
+		if key == "experience" {
+			filter[key] = bson.M{"$gt": convertStringToNumber(values[0])}
+		} else {
+			filter[key] = bson.M{"$all": values}
+		}
+	}
+	log.Printf("MongoDB filter:%s\n", filter)
+	return filter
+}
+
+func getFilterForTopMentorList() bson.M {
+	return bson.M{
+		"isMentor":    true,
+		"isApproved":  true,
+		"isTopMentor": true,
+	}
+}
+
+func fetchMentors(filter bson.M) []model.User {
+	collection := GetCollection("users")
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		log.Printf("Failed to find documents: %v\n", err)
 		return nil
@@ -56,28 +92,14 @@ func GetMentors(params url.Values) []model.User {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
+		} else {
+			users = append(users, user)
 		}
-		users = append(users, user)
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("Cursor error: %v", err)
 	}
 	return users
-}
-
-func getFilterForMentorList(params url.Values) bson.M {
-	filter := bson.M{}
-	filter["isMentor"] = true
-	filter["isApproved"] = true
-	for key, values := range params {
-		if key == "experience" {
-			filter[key] = bson.M{"$gt": convertStringToNumber(values[0])}
-		} else {
-			filter[key] = bson.M{"$all": values}
-		}
-	}
-	log.Printf("MongoDB filter:%s\n", filter)
-	return filter
 }
 
 func convertStringToNumber(s string) float32 {

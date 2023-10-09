@@ -27,6 +27,7 @@ type User struct {
 	Password               string               `json:"-" bson:"password,omitempty"`
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
+	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
 }
 
 type CountryDescription struct {

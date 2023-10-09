@@ -70,7 +70,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		}
 
 		collection := database.GetCollection("blacklistedTokens")
-		filter := bson.M{"token": token}
+		filter := bson.M{"token": token.Raw}
 		var blackListedToken model.Token
 		collection.FindOne(context.Background(), filter).Decode(&blackListedToken)
 		if !utils.IsEmptyStruct(blackListedToken) {

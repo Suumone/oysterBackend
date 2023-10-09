@@ -10,13 +10,13 @@ import (
 	"strings"
 )
 
-func HandleGetMentors(w http.ResponseWriter, r *http.Request) {
+func GetMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	users := database.GetMentors(queryParameters)
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
-func HandleGetMentorListFilters(w http.ResponseWriter, r *http.Request) {
+func GetMentorListFilters(w http.ResponseWriter, r *http.Request) {
 	listOfFilters, err := database.GetListOfFilterFields()
 	if err != nil {
 		log.Printf("Error getting fields filter: %v\n", err)
@@ -27,7 +27,7 @@ func HandleGetMentorListFilters(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, listOfFilters)
 }
 
-func HandleGetMentor(w http.ResponseWriter, r *http.Request) {
+func GetMentor(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
 
@@ -39,7 +39,7 @@ func HandleGetMentor(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, mentor)
 }
 
-func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
+func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
@@ -60,7 +60,7 @@ func HandleGetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
+func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
@@ -76,7 +76,7 @@ func HandleGetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, user)
 }
 
-func HandleUpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
+func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
@@ -105,4 +105,9 @@ func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
 		return jwtKey, nil
 	})
 	return claims, err
+}
+
+func GetTopMentors(w http.ResponseWriter, r *http.Request) {
+	users := database.GetTopMentors()
+	WriteJSONResponse(w, http.StatusOK, users)
 }
