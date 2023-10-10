@@ -4,6 +4,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"log"
 	"net/http"
+	"net/mail"
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
@@ -63,7 +64,7 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusBadRequest)
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
 	userId, _ := claims["id"].(string)
@@ -79,18 +80,24 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusBadRequest)
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
 	userId, _ := claims["id"].(string)
 
 	var userForUpdate model.User
-	if err := ParseJSONRequest(w, r, &userForUpdate); err != nil {
+	if err := ParseJSONRequest(r, &userForUpdate); err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	_, err = mail.ParseAddress(userForUpdate.Email)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
 		return
 	}
 	utils.NormalizeSocialLinks(&userForUpdate)
 
-	if err := database.UpdateMentor(userForUpdate, userId); err != nil {
+	if err := database.UpdateUser(userForUpdate, userId); err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
@@ -110,4 +117,27 @@ func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
 func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	users := database.GetTopMentors()
 	WriteJSONResponse(w, http.StatusOK, users)
+}
+
+func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	userId, _ := claims["id"].(string)
+	var passwordPayload model.PasswordChange
+	err = ParseJSONRequest(r, &passwordPayload)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+
+	err = database.ChangePassword(userId, passwordPayload)
+	if err != nil {
+		log.Printf("Error updating password: %v\n", err)
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating password")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, "Password successfully updated")
 }

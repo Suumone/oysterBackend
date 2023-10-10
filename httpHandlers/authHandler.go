@@ -14,6 +14,7 @@ import (
 	"golang.org/x/oauth2/endpoints"
 	"log"
 	"net/http"
+	"net/mail"
 	"os"
 	"oysterProject/database"
 	"oysterProject/model"
@@ -48,7 +49,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := strings.Split(r.Header.Get("Authorization"), "Bearer ")
 		if len(authHeader) != 2 {
-			http.Error(w, "Missing or malformed JWT", http.StatusForbidden)
+			WriteJSONResponse(w, http.StatusForbidden, "Missing or malformed JWT")
 			return
 		}
 
@@ -60,12 +61,12 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		})
 
 		if err != nil {
-			http.Error(w, "Invalid token", http.StatusForbidden)
+			WriteJSONResponse(w, http.StatusForbidden, "Invalid token")
 			return
 		}
 
 		if !token.Valid {
-			http.Error(w, "Expired token", http.StatusForbidden)
+			WriteJSONResponse(w, http.StatusForbidden, "Expired token")
 			return
 		}
 
@@ -74,7 +75,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		var blackListedToken model.Token
 		collection.FindOne(context.Background(), filter).Decode(&blackListedToken)
 		if !utils.IsEmptyStruct(blackListedToken) {
-			http.Error(w, "Invalid token", http.StatusForbidden)
+			WriteJSONResponse(w, http.StatusForbidden, "Invalid token")
 			return
 		}
 
@@ -83,53 +84,72 @@ func JWTMiddleware(next http.Handler) http.Handler {
 }
 
 func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
-	var user model.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Error decoding request", http.StatusBadRequest)
+	var authData model.Auth
+	err := ParseJSONRequest(r, &authData)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	_, err = mail.ParseAddress(authData.Email)
 	if err != nil {
-		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
 		return
 	}
-	user.Password = string(hashedPassword)
-	user.IsMentor = false
-	user.IsNewUser = true
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(authData.Password), bcrypt.DefaultCost)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error hashing password")
+		return
+	}
+
+	user := model.User{
+		Email:     authData.Email,
+		Password:  string(hashedPassword),
+		IsMentor:  false,
+		IsNewUser: true,
+	}
 
 	user.Id, err = database.SaveMentor(user)
 	if err != nil {
-		http.Error(w, "Error inserting user into database", http.StatusInternalServerError)
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error inserting user into database")
 		return
 	}
 
 	tokenString, err := generateToken(user)
 	if err != nil {
-		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
+		WriteMessageResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
 		return
 	}
 	WriteJSONResponse(w, http.StatusCreated, tokenString)
 }
 
-func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var user model.User
-	json.NewDecoder(r.Body).Decode(&user)
+func HandleSignIn(w http.ResponseWriter, r *http.Request) {
+	var signInData model.Auth
+	err := ParseJSONRequest(r, &signInData)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	if signInData.Password == "" {
+		WriteMessageResponse(w, http.StatusNotFound, "Empty password")
+		return
+	}
 
-	foundUser, err := database.GetUserByEmail(user)
+	foundUser, err := database.GetUserByEmail(signInData.Email)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(signInData.Password)); err != nil {
 		WriteJSONResponse(w, http.StatusUnauthorized, "Wrong password")
 		return
 	}
 
 	tokenString, err := generateToken(foundUser)
 	if err != nil {
-		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, tokenString)
@@ -200,23 +220,23 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo, err = database.GetUserByEmail(userInfo)
+	userInfo, err = database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.IsMentor = false
 		userInfo.IsNewUser = true
 		userInfo.Id, err = database.SaveMentor(userInfo)
 		if err != nil {
-			http.Error(w, "Database insert error: "+err.Error(), http.StatusInternalServerError)
+			WriteJSONResponse(w, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return
 		}
 	} else if err != nil {
-		http.Error(w, "Database search error: "+err.Error(), http.StatusInternalServerError)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Database search error: "+err.Error())
 		return
 	}
 
 	tokenString, err := generateToken(userInfo)
 	if err != nil {
-		http.Error(w, "Failed to generate JWT: "+err.Error(), http.StatusInternalServerError)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, tokenString)
@@ -230,7 +250,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 		return jwtKey, nil
 	})
 	if err != nil {
-		http.Error(w, "Invalid token", http.StatusBadRequest)
+		WriteJSONResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
 
@@ -243,7 +263,7 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: expiresAt,
 	})
 	if err != nil {
-		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Database error: "+err.Error())
 		return
 	}
 

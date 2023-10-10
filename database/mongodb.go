@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/url"
 	"oysterProject/model"
@@ -157,7 +158,7 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	return user
 }
 
-func UpdateMentor(user model.User, id string) error {
+func UpdateUser(user model.User, id string) error {
 	user.IsNewUser = false
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	collection := GetCollection("users")
@@ -252,11 +253,57 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 	return result
 }
 
-func GetUserByEmail(user model.User) (model.User, error) {
-	collection := GetCollection("users")
+func GetUserByEmail(email string) (model.User, error) {
+	usersCollection := GetCollection("users")
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
-	filter := bson.M{"email": user.Email}
-	err := collection.FindOne(ctx, filter).Decode(&user)
+	filter := bson.M{"email": email}
+	var user model.User
+	err := usersCollection.FindOne(ctx, filter).Decode(&user)
 	return user, err
+}
+
+func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
+	userCollection := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	var user model.User
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	err := userCollection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		log.Printf("Failed to find document: %v\n", err)
+		return err
+	}
+	if checkPassword(user.Password, passwordPayload.OldPassword) {
+		return updatePassword(idToFind, passwordPayload.NewPassword)
+	} else {
+		return errors.New("old passwords do not match")
+	}
+}
+
+func checkPassword(hashedPassword string, plainPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(plainPassword))
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func updatePassword(userId primitive.ObjectID, plainPassword string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+	userCollection := GetCollection("users")
+	filter := bson.M{"_id": userId}
+	update := bson.M{
+		"$set": bson.M{
+			"password": hashedPassword,
+		},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	_, err = userCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
 }

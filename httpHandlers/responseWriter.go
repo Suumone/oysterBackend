@@ -6,10 +6,9 @@ import (
 	"net/http"
 )
 
-func ParseJSONRequest(w http.ResponseWriter, r *http.Request, payload interface{}) error {
+func ParseJSONRequest(r *http.Request, payload interface{}) error {
 	err := json.NewDecoder(r.Body).Decode(payload)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		log.Println(err)
 	}
 	return err
