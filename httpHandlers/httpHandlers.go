@@ -1,7 +1,7 @@
 package httpHandlers
 
 import (
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"log"
 	"net/http"
 	"net/mail"
