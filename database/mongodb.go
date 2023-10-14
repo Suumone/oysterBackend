@@ -10,24 +10,8 @@ import (
 	"log"
 	"net/url"
 	"oysterProject/model"
-	"strconv"
 	"strings"
-	"time"
-	"unicode"
 )
-
-var MongoDBClient *mongo.Client
-var MongoDBOyster *mongo.Database
-
-const dbTimeout = 5 * time.Second
-
-func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, dbTimeout)
-}
-
-func GetCollection(collectionName string) *mongo.Collection {
-	return MongoDBOyster.Collection(collectionName)
-}
 
 func SaveMentor(user model.User) (primitive.ObjectID, error) {
 	collection := GetCollection("users")
@@ -59,10 +43,14 @@ func getFilterForMentorList(params url.Values) bson.M {
 	}
 
 	for key, values := range params {
-		if key == "experience" {
+		fieldType, _ := fieldTypes[key]
+		switch fieldType {
+		case "array":
+			filter[key] = bson.M{"$in": strings.Split(values[0], ",")}
+		case "number":
 			filter[key] = bson.M{"$gt": convertStringToNumber(values[0])}
-		} else {
-			filter[key] = bson.M{"$all": values}
+		default:
+			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
 	log.Printf("MongoDB filter:%s\n", filter)
@@ -101,22 +89,6 @@ func fetchMentors(filter bson.M) []model.User {
 		log.Printf("Cursor error: %v", err)
 	}
 	return users
-}
-
-func convertStringToNumber(s string) float32 {
-	cleanString := strings.Map(func(r rune) rune {
-		if unicode.IsDigit(r) || r == '.' || r == '-' {
-			return r
-		}
-		return -1
-	}, s)
-
-	f, err := strconv.ParseFloat(cleanString, 32)
-	if err != nil {
-		return 0
-	}
-
-	return float32(f)
 }
 
 func GetUserByID(id string) model.User {

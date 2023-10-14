@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+const dbTimeout = 5 * time.Second
+
+var MongoDBClient *mongo.Client
+var MongoDBOyster *mongo.Database
+
 func ConnectToMongoDB() (*mongo.Client, error) {
 	uri := os.Getenv("DB_ADDRESS")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -30,4 +35,12 @@ func CloseMongoDBConnection() {
 	if err := MongoDBClient.Disconnect(context.Background()); err != nil {
 		log.Fatalf("Failed to disconnect from MongoDB: %v", err)
 	}
+}
+
+func withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, dbTimeout)
+}
+
+func GetCollection(collectionName string) *mongo.Collection {
+	return MongoDBOyster.Collection(collectionName)
 }

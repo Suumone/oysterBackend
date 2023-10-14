@@ -17,7 +17,7 @@ func GetMentors(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
-func GetMentorListFilters(w http.ResponseWriter, r *http.Request) {
+func GetMentorListFilters(w http.ResponseWriter, _ *http.Request) {
 	listOfFilters, err := database.GetListOfFilterFields()
 	if err != nil {
 		log.Printf("Error getting fields filter: %v\n", err)
@@ -114,7 +114,7 @@ func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
 	return claims, err
 }
 
-func GetTopMentors(w http.ResponseWriter, r *http.Request) {
+func GetTopMentors(w http.ResponseWriter, _ *http.Request) {
 	users := database.GetTopMentors()
 	WriteJSONResponse(w, http.StatusOK, users)
 }
