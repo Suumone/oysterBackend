@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/url"
 	"oysterProject/model"
+	"oysterProject/utils"
 	"strings"
 )
 
@@ -277,5 +278,48 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func GetCurrentState(userId string) model.UserState {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+	collection := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	var user model.UserState
+	err := collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			log.Printf("User(%s) not found\n", userId)
+		} else {
+			log.Printf("Failed to find document: %v\n", err)
+		}
+		return model.UserState{}
+	}
+	return user
+}
+
+func UpdateUserState(asMentor bool, userId string) error {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	collection := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind, "isMentor": true}
+	update := bson.M{
+		"$set": bson.M{
+			"asMentor": asMentor,
+		},
+	}
+	result, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Printf("Failed to update user(%s) state: %v\n", userId, err)
+		return err
+	}
+	if result.ModifiedCount == 0 {
+		return utils.UserIsNotMentor
+	}
+
+	log.Printf("User(id: %s) updated successfully!\n", userId)
 	return nil
 }

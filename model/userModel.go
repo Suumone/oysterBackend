@@ -28,6 +28,7 @@ type User struct {
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
+	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
 }
 
 type CountryDescription struct {
@@ -42,4 +43,9 @@ type MentorsTopics struct {
 
 type Price struct {
 	Price string `json:"price" bson:"price,omitempty"`
+}
+
+type UserState struct {
+	Id       primitive.ObjectID `json:"id" bson:"_id,omitempty"`
+	AsMentor bool               `json:"asMentor" bson:"asMentor,omitempty"`
 }
