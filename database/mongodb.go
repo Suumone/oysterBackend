@@ -6,11 +6,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/url"
 	"oysterProject/model"
 	"oysterProject/utils"
+	"strconv"
 	"strings"
 )
 
@@ -27,14 +29,43 @@ func SaveMentor(user model.User) (primitive.ObjectID, error) {
 	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentors(params url.Values) []model.User {
+func GetMentors(params url.Values) ([]model.User, error) {
 	filter := getFilterForMentorList(params)
-	return fetchMentors(filter)
+	offset, limit, err := getOffsetAndLimit(params)
+	if err != nil {
+		return nil, err
+	}
+	return fetchMentors(filter, offset, limit)
 }
 
-func GetTopMentors() []model.User {
+func GetTopMentors(params url.Values) ([]model.User, error) {
 	filter := getFilterForTopMentorList()
-	return fetchMentors(filter)
+	offset, limit, err := getOffsetAndLimit(params)
+	if err != nil {
+		return nil, err
+	}
+	return fetchMentors(filter, offset, limit)
+}
+
+func getOffsetAndLimit(params url.Values) (int, int, error) {
+	var offset int
+	var err error
+	if params.Get("offset") != "" {
+		offset, err = strconv.Atoi(params.Get("offset"))
+		if err != nil {
+			log.Printf("Error reading offset parameter: %v\n\n", err)
+			return 0, 0, err
+		}
+	}
+	var limit int
+	if params.Get("limit") != "" {
+		limit, err = strconv.Atoi(params.Get("limit"))
+		if err != nil {
+			log.Printf("Error reading limit parameter: %v\n\n", err)
+			return 0, 0, err
+		}
+	}
+	return offset, limit, nil
 }
 
 func getFilterForMentorList(params url.Values) bson.M {
@@ -46,6 +77,8 @@ func getFilterForMentorList(params url.Values) bson.M {
 	for key, values := range params {
 		fieldType, _ := fieldTypes[key]
 		switch fieldType {
+		case "options":
+			continue
 		case "array":
 			filter[key] = bson.M{"$in": strings.Split(values[0], ",")}
 		case "number":
@@ -66,14 +99,21 @@ func getFilterForTopMentorList() bson.M {
 	}
 }
 
-func fetchMentors(filter bson.M) []model.User {
+func fetchMentors(filter bson.M, offset int, limit int) ([]model.User, error) {
 	collection := GetCollection("users")
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	cursor, err := collection.Find(ctx, filter)
+	opts := options.Find()
+	if offset != 0 {
+		opts = opts.SetSkip(int64(offset))
+	}
+	if limit != 0 {
+		opts = opts.SetLimit(int64(limit))
+	}
+	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		log.Printf("Failed to find documents: %v\n", err)
-		return nil
+		return nil, err
 	}
 	defer cursor.Close(context.Background())
 
@@ -82,25 +122,29 @@ func fetchMentors(filter bson.M) []model.User {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
+			return nil, err
 		} else {
 			users = append(users, user)
 		}
 	}
 	if err := cursor.Err(); err != nil {
 		log.Printf("Cursor error: %v", err)
+		return nil, err
 	}
-	return users
+	return users, nil
 }
 
 func GetUserByID(id string) model.User {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
 	collection := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": idToFind}
 	var user model.User
-	err := collection.FindOne(context.Background(), filter).Decode(&user)
+	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			log.Println("Document not found")
+			handleFindError(err, id)
 		} else {
 			log.Printf("Failed to find document: %v\n", err)
 		}
@@ -228,7 +272,7 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 
 func GetUserByEmail(email string) (model.User, error) {
 	usersCollection := GetCollection("users")
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	filter := bson.M{"email": email}
 	var user model.User
@@ -241,7 +285,7 @@ func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	var user model.User
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	err := userCollection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
@@ -272,7 +316,7 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 			"password": hashedPassword,
 		},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	_, err = userCollection.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -282,7 +326,7 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 }
 
 func GetCurrentState(userId string) model.UserState {
-	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(userId)

@@ -9,12 +9,22 @@ import (
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
+	"strconv"
 	"strings"
 )
 
-func GetMentors(w http.ResponseWriter, r *http.Request) {
+func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	users := database.GetMentors(queryParameters)
+	users, err := database.GetMentors(queryParameters)
+	if err != nil {
+		if errors.Is(err, strconv.ErrSyntax) {
+			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")
+			return
+		} else {
+			WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentors from database")
+			return
+		}
+	}
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
@@ -115,8 +125,18 @@ func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
 	return claims, err
 }
 
-func GetTopMentors(w http.ResponseWriter, _ *http.Request) {
-	users := database.GetTopMentors()
+func GetTopMentors(w http.ResponseWriter, r *http.Request) {
+	queryParameters := r.URL.Query()
+	users, err := database.GetTopMentors(queryParameters)
+	if err != nil {
+		if errors.Is(err, strconv.ErrSyntax) {
+			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")
+			return
+		} else {
+			WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentors from database")
+			return
+		}
+	}
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
