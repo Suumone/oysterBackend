@@ -29,3 +29,12 @@ func makeURL(text string, urlPrefix string) string {
 
 	return "https://www." + urlPrefix + strings.ReplaceAll(text, " ", "_")
 }
+
+func Contains(slice []string, item string) bool {
+	for _, a := range slice {
+		if a == item {
+			return true
+		}
+	}
+	return false
+}

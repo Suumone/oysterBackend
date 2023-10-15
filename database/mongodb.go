@@ -6,6 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 	"log"
@@ -159,8 +160,8 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	usersColl := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
-	pipeline := GetMentorListPipeline(idToFind)
-	cursor, err := usersColl.Aggregate(ctx, pipeline)
+	mentorListPipeline := GetMentorListPipeline(idToFind)
+	cursor, err := usersColl.Aggregate(ctx, mentorListPipeline)
 	if err != nil {
 		return model.UserWithReviews{}
 	}
@@ -366,4 +367,65 @@ func UpdateUserState(asMentor bool, userId string) error {
 
 	log.Printf("User(id: %s) updated successfully!\n", userId)
 	return nil
+}
+
+func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) error {
+	bucket, err := gridfs.NewBucket(
+		MongoDBOyster,
+	)
+	if err != nil {
+		return err
+	}
+	uploadStream, err := bucket.OpenUploadStream(userId+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}))
+	if err != nil {
+		return err
+	}
+	defer uploadStream.Close()
+	_, err = uploadStream.Write(fileBytes)
+	if err != nil {
+		return err
+	}
+
+	userCollection := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	update := bson.M{
+		"$set": bson.M{
+			"profileImageId": uploadStream.FileID.(primitive.ObjectID),
+		},
+	}
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	_, err = userCollection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	usersColl := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	imageForUserPipeline := GetImageForUserPipeline(idToFind)
+	cursor, err := usersColl.Aggregate(ctx, imageForUserPipeline)
+	if err != nil {
+		log.Printf("Failed to execute image search: %v", err)
+		return model.UserImageResult{}, err
+	}
+	defer cursor.Close(ctx)
+	var userImage model.UserImage
+	for cursor.Next(context.Background()) {
+		if err := cursor.Decode(&userImage); err != nil {
+			log.Printf("Failed to decode image search result: %v", err)
+			return model.UserImageResult{}, err
+		}
+	}
+	if utils.IsEmptyStruct(userImage) || len(userImage.Image) == 0 {
+		return model.UserImageResult{}, errors.New("user image not found")
+	}
+	userImageResult := model.UserImageResult{
+		UserId:    userImage.UserId,
+		Image:     userImage.Image[0],
+		Extension: userImage.Extension,
+	}
+	return userImageResult, nil
 }
