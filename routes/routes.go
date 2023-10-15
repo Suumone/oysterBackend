@@ -27,6 +27,8 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Get("/", httpHandlers.GetProfileByToken)
 		r.Post("/update", httpHandlers.UpdateProfileByToken)
 		r.Post("/updatePassword", httpHandlers.ChangePassword)
+		r.Get("/getCurrentState", httpHandlers.GetCurrentState)
+		r.Post("/updateCurrentState", httpHandlers.UpdateCurrentState)
 	})
 }
 

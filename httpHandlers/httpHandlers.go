@@ -141,3 +141,38 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSONResponse(w, http.StatusOK, "Password successfully updated")
 }
+
+func GetCurrentState(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	userId, _ := claims["id"].(string)
+
+	userState := database.GetCurrentState(userId)
+	if utils.IsEmptyStruct(userState) {
+		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, userState)
+}
+
+func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	userId, _ := claims["id"].(string)
+	var userForUpdate model.UserState
+	if err := ParseJSONRequest(r, &userForUpdate); err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	if err := database.UpdateUserState(userForUpdate.AsMentor, userId); err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, "User state updated")
+}
