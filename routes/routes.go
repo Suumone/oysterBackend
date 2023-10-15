@@ -14,6 +14,7 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Get("/getMentor", httpHandlers.GetMentor)
 	r.Get("/getTopMentors", httpHandlers.GetTopMentors)
 	r.Get("/getReviews", httpHandlers.GetMentorReviews)
+	r.Get("/getUserImage", httpHandlers.GetUserImage)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)
@@ -29,6 +30,7 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Post("/updatePassword", httpHandlers.ChangePassword)
 		r.Get("/getCurrentState", httpHandlers.GetCurrentState)
 		r.Post("/updateCurrentState", httpHandlers.UpdateCurrentState)
+		r.Post("/uploadProfilePicture", httpHandlers.UploadUserImage)
 	})
 }
 

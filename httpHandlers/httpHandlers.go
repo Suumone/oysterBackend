@@ -3,12 +3,14 @@ package httpHandlers
 import (
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"io"
 	"log"
 	"net/http"
 	"net/mail"
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -73,12 +75,11 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
+	userId, err := getUserIdFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId, _ := claims["id"].(string)
 
 	user := database.GetUserByID(userId)
 	if utils.IsEmptyStruct(user) {
@@ -89,12 +90,11 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
+	userId, err := getUserIdFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId, _ := claims["id"].(string)
 
 	var userForUpdate model.User
 	if err := ParseJSONRequest(r, &userForUpdate); err != nil {
@@ -113,6 +113,15 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, "User updated")
+}
+
+func getUserIdFromRequest(r *http.Request) (string, error) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		return "", err
+	}
+	userId, _ := claims["id"].(string)
+	return userId, nil
 }
 
 func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
@@ -201,4 +210,69 @@ func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	WriteJSONResponse(w, http.StatusOK, "User state updated")
+}
+
+func UploadUserImage(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIdFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+
+	err = r.ParseMultipartForm(1024 * 1024 * 10) // 10 MB limit
+	if err != nil {
+		log.Printf("Error parsing multipart form: %v\n", err)
+		WriteJSONResponse(w, http.StatusBadRequest, "File too big")
+		return
+	}
+
+	file, header, err := r.FormFile("profilePicture")
+	if err != nil {
+		log.Printf("Error retrieving the file: %v\n", err)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error Retrieving the file")
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	allowedExtensions := []string{".jpg", ".jpeg", ".png"}
+	if !utils.Contains(allowedExtensions, ext) {
+		WriteJSONResponse(w, http.StatusBadRequest, "File type not allowed")
+		return
+	}
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		log.Printf("Error reading file: %v\n", err)
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error reading file")
+		return
+	}
+	err = database.SaveProfilePicture(userId, fileBytes, ext)
+	if err != nil {
+		log.Printf("Error during saving picture: %v\n", err)
+		WriteMessageResponse(w, http.StatusBadRequest, "Error during saving picture")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, "Profile picture successfully updated")
+}
+
+func GetUserImage(w http.ResponseWriter, r *http.Request) {
+	queryParameters := r.URL.Query()
+	var userId string
+	if len(queryParameters) == 0 {
+		id, err := getUserIdFromRequest(r)
+		if err != nil {
+			WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+			return
+		}
+		userId = id
+	} else {
+		userId = queryParameters.Get("id")
+	}
+	userImage, err := database.GetUserPictureByUserId(userId)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, userImage)
 }

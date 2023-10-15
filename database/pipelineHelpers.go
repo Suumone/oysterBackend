@@ -88,3 +88,41 @@ func GetFrontPageReviewsPipeline() mongo.Pipeline {
 	}
 	return pipeline
 }
+
+func GetImageForUserPipeline(idToFind primitive.ObjectID) bson.A {
+	pipeline := bson.A{
+		bson.D{{"$match", bson.D{{"_id", idToFind}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "fs.files"},
+					{"localField", "profileImageId"},
+					{"foreignField", "_id"},
+					{"as", "profileImage"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$profileImage"}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "fs.chunks"},
+					{"localField", "profileImage._id"},
+					{"foreignField", "files_id"},
+					{"as", "profileImageData"},
+				},
+			},
+		},
+		bson.D{
+			{"$project",
+				bson.D{
+					{"_id", 0},
+					{"userId", "$_id"},
+					{"image", "$profileImageData.data"},
+					{"extension", "$profileImage.metadata.extension"},
+				},
+			},
+		},
+	}
+	return pipeline
+}
