@@ -9,7 +9,7 @@ import (
 )
 
 func ConfigureRoutes(r *chi.Mux) {
-	r.Get("/getMentorList", httpHandlers.GetMentors)
+	r.Get("/getMentorList", httpHandlers.GetMentorsList)
 	r.Get("/getMentorListFilters", httpHandlers.GetMentorListFilters)
 	r.Get("/getMentor", httpHandlers.GetMentor)
 	r.Get("/getTopMentors", httpHandlers.GetTopMentors)
