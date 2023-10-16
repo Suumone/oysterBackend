@@ -15,6 +15,10 @@ import (
 	"strings"
 )
 
+const imageLimitSizeMB = 5
+
+var allowedExtensions = []string{".jpg", ".jpeg", ".png"}
+
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	users, err := database.GetMentors(queryParameters)
@@ -219,7 +223,7 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = r.ParseMultipartForm(1024 * 1024 * 10) // 10 MB limit
+	err = r.ParseMultipartForm(1024 * 1024 * imageLimitSizeMB) // image size limit in mb
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
 		WriteJSONResponse(w, http.StatusBadRequest, "File too big")
@@ -235,7 +239,6 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	allowedExtensions := []string{".jpg", ".jpeg", ".png"}
 	if !utils.Contains(allowedExtensions, ext) {
 		WriteJSONResponse(w, http.StatusBadRequest, "File type not allowed")
 		return
@@ -275,4 +278,12 @@ func GetUserImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, userImage)
+}
+
+func GetImageConfigurations(w http.ResponseWriter, _ *http.Request) {
+	response := map[string]interface{}{
+		"imageLimitSizeMB":  imageLimitSizeMB,
+		"allowedExtensions": allowedExtensions,
+	}
+	WriteJSONResponse(w, http.StatusOK, response)
 }
