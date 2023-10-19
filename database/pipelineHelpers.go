@@ -78,12 +78,14 @@ func GetFrontPageReviewsPipeline() mongo.Pipeline {
 		}}},
 		{{"$unwind", "$reviewerInfo"}},
 		{{"$project", bson.D{
+			{"userId", "$user"},
 			{"review", 1},
 			{"rating", 1},
 			{"date", 1},
 			{"name", "$reviewerInfo.name"},
 			{"jobTitle", "$reviewerInfo.jobTitle"},
 			{"profileImage", "$reviewerInfo.profileImage"},
+			{"reviewerId", "$reviewerInfo._id"},
 		}}},
 	}
 	return pipeline

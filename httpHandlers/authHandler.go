@@ -269,3 +269,26 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 
 	WriteJSONResponse(w, http.StatusOK, "Successfully logged out")
 }
+
+func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	userId, _ := claims["id"].(string)
+	var passwordPayload model.PasswordChange
+	err = ParseJSONRequest(r, &passwordPayload)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+
+	err = database.ChangePassword(userId, passwordPayload)
+	if err != nil {
+		log.Printf("Error updating password: %v\n", err)
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating password")
+		return
+	}
+	WriteJSONResponse(w, http.StatusOK, "Password successfully updated")
+}
