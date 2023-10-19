@@ -21,10 +21,12 @@ type UserWithReviews struct {
 }
 
 type ReviewsForFrontPage struct {
-	Name         string    `json:"name"`
-	JobTitle     string    `json:"jobTitle,omitempty"`
-	ProfileImage string    `json:"profileImage,omitempty"`
-	Review       string    `json:"review"`
-	Rating       int       `json:"rating,omitempty"`
-	Date         time.Time `json:"date,omitempty"`
+	UserId       primitive.ObjectID `json:"userId" bson:"userId"`
+	Name         string             `json:"name"`
+	JobTitle     string             `json:"jobTitle,omitempty"`
+	ProfileImage string             `json:"profileImage,omitempty"`
+	Review       string             `json:"review"`
+	Rating       int                `json:"rating,omitempty"`
+	Date         time.Time          `json:"date,omitempty"`
+	ReviewerId   primitive.ObjectID `json:"reviewerId" bson:"reviewerId"`
 }

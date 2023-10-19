@@ -3,21 +3,15 @@ package httpHandlers
 import (
 	"errors"
 	"github.com/golang-jwt/jwt"
-	"io"
 	"log"
 	"net/http"
 	"net/mail"
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
-
-const imageLimitSizeMB = 5
-
-var allowedExtensions = []string{".jpg", ".jpeg", ".png"}
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
@@ -129,7 +123,11 @@ func getUserIdFromRequest(r *http.Request) (string, error) {
 }
 
 func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
-	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
+	authToken := r.Header.Get("Authorization")
+	if authToken == "" {
+		return nil, errors.New("received empty token")
+	}
+	tokenStr := strings.Split(authToken, "Bearer ")[1]
 
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
@@ -153,37 +151,11 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
-func ChangePassword(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
-		return
-	}
-	userId, _ := claims["id"].(string)
-	var passwordPayload model.PasswordChange
-	err = ParseJSONRequest(r, &passwordPayload)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
-		return
-	}
-
-	err = database.ChangePassword(userId, passwordPayload)
-	if err != nil {
-		log.Printf("Error updating password: %v\n", err)
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating password")
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, "Password successfully updated")
-}
-
 func GetCurrentState(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+	userId, ok := getUserIdFromToken(w, r)
+	if !ok {
 		return
 	}
-	userId, _ := claims["id"].(string)
-
 	userState := database.GetCurrentState(userId)
 	if utils.IsEmptyStruct(userState) {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
@@ -193,18 +165,16 @@ func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+	userId, ok := getUserIdFromToken(w, r)
+	if !ok {
 		return
 	}
-	userId, _ := claims["id"].(string)
-	var userForUpdate model.UserState
-	if err := ParseJSONRequest(r, &userForUpdate); err != nil {
+	var userForStateUpdate model.UserState
+	if err := ParseJSONRequest(r, &userForStateUpdate); err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
-	if err := database.UpdateUserState(userForUpdate.AsMentor, userId); err != nil {
+	if err := database.UpdateUserState(userForStateUpdate.AsMentor, userId); err != nil {
 		if errors.Is(err, utils.UserIsNotMentor) {
 			WriteMessageResponse(w, http.StatusBadRequest, "Status update for mentors only")
 			return
@@ -216,74 +186,12 @@ func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, "User state updated")
 }
 
-func UploadUserImage(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+func getUserIdFromToken(w http.ResponseWriter, r *http.Request) (string, bool) {
+	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
-		return
+		return "", false
 	}
-
-	err = r.ParseMultipartForm(1024 * 1024 * imageLimitSizeMB) // image size limit in mb
-	if err != nil {
-		log.Printf("Error parsing multipart form: %v\n", err)
-		WriteJSONResponse(w, http.StatusBadRequest, "File too big")
-		return
-	}
-
-	file, header, err := r.FormFile("profilePicture")
-	if err != nil {
-		log.Printf("Error retrieving the file: %v\n", err)
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error Retrieving the file")
-		return
-	}
-	defer file.Close()
-
-	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if !utils.Contains(allowedExtensions, ext) {
-		WriteJSONResponse(w, http.StatusBadRequest, "File type not allowed")
-		return
-	}
-
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		log.Printf("Error reading file: %v\n", err)
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error reading file")
-		return
-	}
-	err = database.SaveProfilePicture(userId, fileBytes, ext)
-	if err != nil {
-		log.Printf("Error during saving picture: %v\n", err)
-		WriteMessageResponse(w, http.StatusBadRequest, "Error during saving picture")
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, "Profile picture successfully updated")
-}
-
-func GetUserImage(w http.ResponseWriter, r *http.Request) {
-	queryParameters := r.URL.Query()
-	var userId string
-	if len(queryParameters) == 0 {
-		id, err := getUserIdFromRequest(r)
-		if err != nil {
-			WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
-			return
-		}
-		userId = id
-	} else {
-		userId = queryParameters.Get("id")
-	}
-	userImage, err := database.GetUserPictureByUserId(userId)
-	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database")
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, userImage)
-}
-
-func GetImageConfigurations(w http.ResponseWriter, _ *http.Request) {
-	response := map[string]interface{}{
-		"imageLimitSizeMB":  imageLimitSizeMB,
-		"allowedExtensions": allowedExtensions,
-	}
-	WriteJSONResponse(w, http.StatusOK, response)
+	userId, _ := claims["id"].(string)
+	return userId, true
 }
