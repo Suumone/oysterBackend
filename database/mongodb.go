@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-func SaveMentor(user model.User) (primitive.ObjectID, error) {
+func CreateMentor(user model.User) (primitive.ObjectID, error) {
 	collection := GetCollection("users")
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -30,8 +30,11 @@ func SaveMentor(user model.User) (primitive.ObjectID, error) {
 	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentors(params url.Values) ([]model.User, error) {
-	filter := getFilterForMentorList(params)
+func GetMentors(params url.Values, userId string) ([]model.User, error) {
+	filter, err := getFilterForMentorList(params, userId)
+	if err != nil {
+		return nil, err
+	}
 	offset, limit, err := getOffsetAndLimit(params)
 	if err != nil {
 		return nil, err
@@ -69,7 +72,7 @@ func getOffsetAndLimit(params url.Values) (int, int, error) {
 	return offset, limit, nil
 }
 
-func getFilterForMentorList(params url.Values) bson.M {
+func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
 	filter := bson.M{
 		"isMentor":   true,
 		"isApproved": true,
@@ -88,8 +91,14 @@ func getFilterForMentorList(params url.Values) bson.M {
 			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
+	bestMentors, err := getUserBestMentors(userId)
+	if err != nil {
+		return nil, err
+	}
+	filter["_id"] = bson.M{"$nin": bestMentors}
+
 	log.Printf("MongoDB filter:%s\n", filter)
-	return filter
+	return filter, nil
 }
 
 func getFilterForTopMentorList() bson.M {
@@ -457,4 +466,38 @@ func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 		Extension: userImage.Extension,
 	}
 	return userImageResult, nil
+}
+
+func SaveBestMentorsForUser(userId string, mentorsIds []string) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	usersColl := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	mentorsObjectIds, err := convertStringsToObjectIDs(mentorsIds)
+	if err != nil {
+		return
+	}
+	updateOp := bson.M{"$set": bson.M{"bestMentors": mentorsObjectIds}}
+	_, err = usersColl.UpdateOne(ctx, filter, updateOp)
+	if err != nil {
+		log.Printf("Failed to save mentors from chatgpt to db: %v", err)
+	} else {
+		log.Printf("Mentors(%s) for user(%s) saved in db", mentorsIds, userId)
+	}
+}
+
+func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	usersColl := GetCollection("users")
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	var user model.UserBestMentors
+	err := usersColl.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		log.Printf("Failed to get user(%s) best mentors from db: %v\n", userId, err)
+		return nil, err
+	}
+	return user.BestMentors, nil
 }

@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"strconv"
@@ -42,4 +43,17 @@ func handleFindError(err error, subject string) {
 	default:
 		log.Printf("Failed to find %s: %v", subject, err)
 	}
+}
+
+func convertStringsToObjectIDs(stringSlice []string) ([]primitive.ObjectID, error) {
+	var objectIDSlice []primitive.ObjectID
+	for _, str := range stringSlice {
+		objectID, err := primitive.ObjectIDFromHex(str)
+		if err != nil {
+			log.Printf("Failed to convert string(%s) to ObjectId: %v", str, err)
+			return nil, err
+		}
+		objectIDSlice = append(objectIDSlice, objectID)
+	}
+	return objectIDSlice, nil
 }

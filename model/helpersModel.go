@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
+)
 
 type Token struct {
 	Token string `json:"token" bson:"token"`
@@ -23,4 +26,8 @@ type Auth struct {
 
 type RequestParams struct {
 	Fields []string `json:"fields"`
+}
+
+type UserBestMentors struct {
+	BestMentors []primitive.ObjectID `bson:"bestMentors"`
 }
