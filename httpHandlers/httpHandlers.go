@@ -16,7 +16,13 @@ import (
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	users, err := database.GetMentors(queryParameters)
+	claims, err := getTokenClaimsFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	userId, _ := claims["id"].(string)
+	users, err := database.GetMentors(queryParameters, userId)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")

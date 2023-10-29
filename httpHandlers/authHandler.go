@@ -110,7 +110,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		IsNewUser: true,
 	}
 
-	user.Id, err = database.SaveMentor(user)
+	user.Id, err = database.CreateMentor(user)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error inserting user into database")
 		return
@@ -224,7 +224,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.IsMentor = false
 		userInfo.IsNewUser = true
-		userInfo.Id, err = database.SaveMentor(userInfo)
+		userInfo.Id, err = database.CreateMentor(userInfo)
 		if err != nil {
 			WriteJSONResponse(w, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return

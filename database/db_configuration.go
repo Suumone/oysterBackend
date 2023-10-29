@@ -9,14 +9,14 @@ import (
 	"time"
 )
 
-const dbTimeout = 30 * time.Second
+const dbTimeout = 5 * time.Second
 
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
 
 func ConnectToMongoDB() (*mongo.Client, error) {
 	uri := os.Getenv("DB_ADDRESS")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
