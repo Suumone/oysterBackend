@@ -449,7 +449,7 @@ func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 		}
 	}
 	if utils.IsEmptyStruct(userImage) || len(userImage.Image) == 0 {
-		return model.UserImageResult{}, errors.New("user image not found")
+		return model.UserImageResult{}, utils.UserImageNotFound
 	}
 	userImageResult := model.UserImageResult{
 		UserId:    userImage.UserId,
