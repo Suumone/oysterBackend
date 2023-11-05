@@ -20,3 +20,7 @@ type Auth struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
+
+type RequestParams struct {
+	Fields []string `json:"fields"`
+}

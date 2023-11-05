@@ -3,6 +3,7 @@ package httpHandlers
 import (
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"io"
 	"log"
 	"net/http"
 	"net/mail"
@@ -28,14 +29,28 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
-func GetMentorListFilters(w http.ResponseWriter, _ *http.Request) {
-	listOfFilters, err := database.GetListOfFilterFields()
-	if err != nil {
-		log.Printf("Error getting fields filter: %v\n", err)
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+func GetMentorListFilters(w http.ResponseWriter, r *http.Request) {
+	var listOfFilters []map[string]interface{}
+	var requestParams model.RequestParams
+	err := ParseJSONRequest(r, &requestParams)
+	if err == nil {
+		listOfFilters, err = database.GetFiltersByNames(requestParams)
+		if err != nil {
+			log.Printf("Error getting fields filter: %v\n", err)
+			WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+			return
+		}
+	} else if err == io.EOF {
+		listOfFilters, err = database.GetListOfFilterFields()
+		if err != nil {
+			log.Printf("Error getting fields filter: %v\n", err)
+			WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+			return
+		}
+	} else {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
-
 	WriteJSONResponse(w, http.StatusOK, listOfFilters)
 }
 
