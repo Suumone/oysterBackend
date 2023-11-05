@@ -219,6 +219,35 @@ func GetListOfFilterFields() ([]map[string]interface{}, error) {
 	return fields, nil
 }
 
+func GetFiltersByNames(params model.RequestParams) ([]map[string]interface{}, error) {
+	var fields []map[string]interface{}
+	filter := bson.M{
+		"fieldStorage": bson.M{"$in": params.Fields},
+	}
+	filterColl := GetCollection("fieldInfo")
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	cursor, err := filterColl.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	var metas []map[string]interface{}
+	if err = cursor.All(context.TODO(), &metas); err != nil {
+		return nil, err
+	}
+
+	for _, meta := range metas {
+		fieldData, err := extractFieldDataFromMeta(meta)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, fieldData)
+	}
+
+	return fields, nil
+}
+
 func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface{}, error) {
 	fieldName := meta["fieldName"].(string)
 	fieldType := meta["type"].(string)

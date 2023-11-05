@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const dbTimeout = 5 * time.Second
+const dbTimeout = 30 * time.Second
 
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
