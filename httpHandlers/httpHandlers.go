@@ -32,6 +32,19 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	for i, user := range users {
+		if user.ProfileImageId.Hex() != "" {
+			userImage, err := database.GetUserPictureByUserId(user.Id.Hex())
+			if errors.Is(err, utils.UserImageNotFound) {
+				continue
+			} else if err != nil {
+				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
+				return
+			}
+			users[i].UserImage = userImage
+		}
+	}
+
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
