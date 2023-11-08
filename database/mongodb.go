@@ -91,12 +91,15 @@ func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
 			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
-	bestMentors, err := getUserBestMentors(userId)
-	if err != nil {
-		return nil, err
+	if userId != "" {
+		bestMentors, err := getUserBestMentors(userId)
+		if err != nil {
+			return nil, err
+		}
+		if len(bestMentors) > 0 {
+			filter["_id"] = bson.M{"$nin": bestMentors}
+		}
 	}
-	filter["_id"] = bson.M{"$nin": bestMentors}
-
 	log.Printf("MongoDB filter:%s\n", filter)
 	return filter, nil
 }
@@ -495,7 +498,10 @@ func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
 	filter := bson.M{"_id": idToFind}
 	var user model.UserBestMentors
 	err := usersColl.FindOne(ctx, filter).Decode(&user)
-	if err != nil {
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		log.Printf("User(%s) was not found in db: %v\n", userId, err)
+		return nil, err
+	} else if err != nil {
 		log.Printf("Failed to get user(%s) best mentors from db: %v\n", userId, err)
 		return nil, err
 	}
