@@ -229,3 +229,17 @@ func getUserIdFromToken(w http.ResponseWriter, r *http.Request) (string, bool) {
 	userId, _ := claims["id"].(string)
 	return userId, true
 }
+
+func GetListValues(w http.ResponseWriter, r *http.Request) {
+	var requestParams model.RequestParams
+	err := ParseJSONRequest(r, &requestParams)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	listOfValues, err := database.GetValuesForSelect(requestParams)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error reading values from database")
+	}
+	WriteJSONResponse(w, http.StatusOK, listOfValues)
+}
