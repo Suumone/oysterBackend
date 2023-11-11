@@ -507,3 +507,24 @@ func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
 	}
 	return user.BestMentors, nil
 }
+
+func GetValuesForSelect(params model.RequestParams) ([]model.ValuesToSelect, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	collection := GetCollection("selectValues")
+	filter := bson.M{
+		"name": bson.M{"$in": params.Fields},
+	}
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		log.Printf("Failed to get values from collection selectValues from DB: %v\n", err)
+		return nil, err
+	}
+
+	var valuesToSelect []model.ValuesToSelect
+	if err = cursor.All(context.TODO(), &valuesToSelect); err != nil {
+		log.Printf("Failed to map values from collection selectValues from DB: %v\n", err)
+		return nil, err
+	}
+	return valuesToSelect, nil
+}

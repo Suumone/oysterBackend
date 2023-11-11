@@ -31,3 +31,8 @@ type RequestParams struct {
 type UserBestMentors struct {
 	BestMentors []primitive.ObjectID `bson:"bestMentors"`
 }
+
+type ValuesToSelect struct {
+	Name   string   `json:"name" bson:"name"`
+	Values []string `json:"values" bson:"values"`
+}
