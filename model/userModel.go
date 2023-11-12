@@ -30,6 +30,7 @@ type User struct {
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
 	UserImage              UserImageResult      `json:"userImage" bson:"userImage,omitempty"`
+	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
 }
 
 type CountryDescription struct {
