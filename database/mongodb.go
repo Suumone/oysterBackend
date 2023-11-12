@@ -529,3 +529,19 @@ func GetValuesForSelect(params model.RequestParams) ([]model.ValuesToSelect, err
 	}
 	return valuesToSelect, nil
 }
+
+func UpdateMentorRequest(request string, id string) {
+	idToFind, _ := primitive.ObjectIDFromHex(id)
+	collection := GetCollection("users")
+	filter := bson.M{"_id": idToFind}
+	updateOp := bson.M{"$set": bson.M{"userMentorRequest": request}}
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	_, err := collection.UpdateOne(ctx, filter, updateOp)
+	if err != nil {
+		log.Printf("Failed to update mentor request(%s) for user(%s) in DB: %v\n", request, id, err)
+		return
+	}
+
+	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
+}

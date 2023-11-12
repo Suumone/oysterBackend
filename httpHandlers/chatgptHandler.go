@@ -21,38 +21,8 @@ var (
 	ApiKey = os.Getenv("OPENAI_API_KEY")
 )
 
-type Payload struct {
-	Prompt    string `json:"prompt"`
-	MaxTokens int    `json:"max_tokens"`
-}
-
-type chatgptHttpPayload struct {
-	Request string `json:"request"`
-}
-
-type mentorForRequest struct {
-	MentorId           string `json:"mentorId"`
-	AreaOfExperience   string `json:"areaOfExperience"`
-	Company            string `json:"company"`
-	CountryDescription []struct {
-		Country     string `json:"country"`
-		Description string `json:"description"`
-	} `json:"countryDescription"`
-	Experience        int      `json:"experience"`
-	IndustryExpertise []string `json:"industryExpertise"`
-	JobTitle          string   `json:"jobTitle"`
-	Language          []string `json:"language"`
-	MentorsTopics     []struct {
-		Description string `json:"description"`
-		Topic       string `json:"topic"`
-	} `json:"mentorsTopics"`
-	Name        string   `json:"name"`
-	Skill       []string `json:"skill"`
-	WelcomeText string   `json:"welcomeText"`
-}
-
-func mapUserToMentorForRequest(user model.User) mentorForRequest {
-	mentor := mentorForRequest{
+func mapUserToMentorForRequest(user model.User) model.MentorForRequest {
+	mentor := model.MentorForRequest{
 		MentorId:         user.Id.Hex(),
 		AreaOfExperience: user.AreaOfExpertise,
 		Company:          user.Company,
@@ -94,11 +64,13 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userId, _ := claims["id"].(string)
-	var requestPayload chatgptHttpPayload
+	var requestPayload model.ChatgptHttpPayload
 	if err := ParseJSONRequest(r, &requestPayload); err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
+
+	go database.UpdateMentorRequest(requestPayload.Request, userId)
 
 	mentorsFromChatgpt, err := sendRequestToChatgpt(requestPayload.Request, userId)
 	if err != nil {
@@ -108,12 +80,12 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, mentorsFromChatgpt)
 }
 
-func sendRequestToChatgpt(request string, userId string) ([]mentorForRequest, error) {
+func sendRequestToChatgpt(request string, userId string) ([]model.MentorForRequest, error) {
 	mentors, err := database.GetMentors(nil, "")
 	if err != nil {
 		return nil, errors.New("error getting mentors from database")
 	}
-	var mentorsForRequest []mentorForRequest
+	var mentorsForRequest []model.MentorForRequest
 	for _, mentor := range mentors {
 		mentorsForRequest = append(mentorsForRequest, mapUserToMentorForRequest(mentor))
 	}
@@ -162,8 +134,8 @@ func sendRequestToChatgpt(request string, userId string) ([]mentorForRequest, er
 	return filteredMentors, nil
 }
 
-func getMentorsFilteredWithChatgpt(mentorsForRequest []mentorForRequest, mentorsIds []string) []mentorForRequest {
-	var filteredMentors []mentorForRequest
+func getMentorsFilteredWithChatgpt(mentorsForRequest []model.MentorForRequest, mentorsIds []string) []model.MentorForRequest {
+	var filteredMentors []model.MentorForRequest
 	for _, mentor := range mentorsForRequest {
 		for _, id := range mentorsIds {
 			if mentor.MentorId == id {
