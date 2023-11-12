@@ -9,7 +9,7 @@ import (
 func ParseJSONRequest(r *http.Request, payload interface{}) error {
 	err := json.NewDecoder(r.Body).Decode(payload)
 	if err != nil {
-		log.Println(err)
+		log.Printf("Error parsing JSON request error(%s), body(%s):\n", err, r.Body)
 	}
 	return err
 }
@@ -30,6 +30,6 @@ func WriteJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
 func writeResponse(w http.ResponseWriter, message string) {
 	_, err := w.Write([]byte(message))
 	if err != nil {
-		log.Println(err)
+		log.Println("Error writing response:", err)
 	}
 }

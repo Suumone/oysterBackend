@@ -157,13 +157,15 @@ func GetUserByID(id string) model.User {
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			handleFindError(err, id)
-		} else {
-			log.Printf("Failed to find document: %v\n", err)
-		}
+		handleFindError(err, id)
 		return model.User{}
 	}
+
+	userImage, err := GetUserPictureByUserId(id)
+	if err != nil && !errors.Is(err, utils.UserImageNotFound) {
+		log.Printf("Failed to find image for user(%s): %v\n", id, err)
+	}
+	user.UserImage = userImage
 	return user
 }
 
