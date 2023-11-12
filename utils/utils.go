@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const ImageLimitSizeMB = 1024 * 1024 * 5 //5 MB
+
 func IsEmptyStruct(input interface{}) bool {
 	zeroValue := reflect.New(reflect.TypeOf(input)).Elem().Interface()
 	return reflect.DeepEqual(input, zeroValue)

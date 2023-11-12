@@ -418,7 +418,7 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 	if err != nil {
 		return err
 	}
-	uploadStream, err := bucket.OpenUploadStream(userId+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}))
+	uploadStream, err := bucket.OpenUploadStream(userId+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
 	if err != nil {
 		return err
 	}
