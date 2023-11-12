@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -465,7 +466,7 @@ func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 	}
 	userImageResult := model.UserImageResult{
 		UserId:    userImage.UserId,
-		Image:     userImage.Image[0],
+		Image:     base64.StdEncoding.EncodeToString(userImage.Image[0]),
 		Extension: userImage.Extension,
 	}
 	return userImageResult, nil
