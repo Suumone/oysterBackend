@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-const imageLimitSizeMB = 5
-
 var allowedExtensions = []string{".jpg", ".jpeg", ".png"}
 
 func UploadUserImage(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +19,7 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = r.ParseMultipartForm(1024 * 1024 * imageLimitSizeMB) // image size limit in mb
+	err = r.ParseMultipartForm(utils.ImageLimitSizeMB)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
 		WriteJSONResponse(w, http.StatusBadRequest, "File too big")
@@ -80,7 +78,7 @@ func GetUserImage(w http.ResponseWriter, r *http.Request) {
 
 func GetImageConfigurations(w http.ResponseWriter, _ *http.Request) {
 	response := map[string]interface{}{
-		"imageLimitSizeMB":  imageLimitSizeMB,
+		"imageLimitSizeMB":  utils.ImageLimitSizeMB / (1024 * 1024),
 		"allowedExtensions": allowedExtensions,
 	}
 	WriteJSONResponse(w, http.StatusOK, response)
