@@ -58,6 +58,6 @@ type UserImage struct {
 }
 type UserImageResult struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	Image     []byte             `json:"image" bson:"image"`
+	Image     string             `json:"image" bson:"image"`
 	Extension string             `json:"extension" bson:"extension"`
 }
