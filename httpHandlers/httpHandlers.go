@@ -16,12 +16,11 @@ import (
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	claims, err := getTokenClaimsFromRequest(r)
+	userId, err := getUserIdFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId, _ := claims["id"].(string)
 	users, err := database.GetMentors(queryParameters, userId)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
@@ -212,8 +211,9 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, ok := getUserIdFromToken(w, r)
-	if !ok {
+	userId, err := getUserIdFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
 	userState := database.GetCurrentState(userId)
@@ -225,8 +225,9 @@ func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, ok := getUserIdFromToken(w, r)
-	if !ok {
+	userId, err := getUserIdFromRequest(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
 	if err := database.UpdateUserState(userId); err != nil {
@@ -239,16 +240,6 @@ func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	WriteJSONResponse(w, http.StatusOK, "User state updated")
-}
-
-func getUserIdFromToken(w http.ResponseWriter, r *http.Request) (string, bool) {
-	claims, err := getTokenClaimsFromRequest(r)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
-		return "", false
-	}
-	userId, _ := claims["id"].(string)
-	return userId, true
 }
 
 func GetListValues(w http.ResponseWriter, r *http.Request) {
