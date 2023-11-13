@@ -66,12 +66,11 @@ func mapUserToMentorForRequest(user model.User) model.MentorForRequest {
 }
 
 func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
+	userId, err := getUserIdFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId, _ := claims["id"].(string)
 	var requestPayload model.ChatgptHttpPayload
 	if err := ParseJSONRequest(r, &requestPayload); err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")

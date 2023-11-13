@@ -270,12 +270,11 @@ func HandleLogOut(w http.ResponseWriter, r *http.Request) {
 }
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
-	claims, err := getTokenClaimsFromRequest(r)
+	userId, err := getUserIdFromRequest(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId, _ := claims["id"].(string)
 	var passwordPayload model.PasswordChange
 	err = ParseJSONRequest(r, &passwordPayload)
 	if err != nil {
