@@ -106,8 +106,8 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	user := model.User{
 		Email:     authData.Email,
 		Password:  string(hashedPassword),
-		IsMentor:  false,
 		IsNewUser: true,
+		AsMentor:  authData.AsMentor,
 	}
 
 	user.Id, err = database.CreateMentor(user)
@@ -222,7 +222,6 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, err = database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		userInfo.IsMentor = false
 		userInfo.IsNewUser = true
 		userInfo.Id, err = database.CreateMentor(userInfo)
 		if err != nil {

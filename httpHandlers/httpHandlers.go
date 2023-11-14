@@ -133,18 +133,21 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
-	_, err = mail.ParseAddress(userForUpdate.Email)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
-		return
+	if userForUpdate.Email != "" {
+		_, err = mail.ParseAddress(userForUpdate.Email)
+		if err != nil {
+			WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
+			return
+		}
 	}
-	utils.NormalizeSocialLinks(&userForUpdate)
+	//utils.NormalizeSocialLinks(&userForUpdate)
 
-	if err := database.UpdateUser(userForUpdate, userId); err != nil {
+	userAfterUpdate, err := database.UpdateUser(userForUpdate, userId)
+	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, "User updated")
+	WriteJSONResponse(w, http.StatusOK, userAfterUpdate)
 }
 
 func getUserIdFromRequest(r *http.Request) (string, error) {
@@ -216,12 +219,7 @@ func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var userForStateUpdate model.UserState
-	if err := ParseJSONRequest(r, &userForStateUpdate); err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
-		return
-	}
-	if err := database.UpdateUserState(userForStateUpdate.AsMentor, userId); err != nil {
+	if err := database.UpdateUserState(userId); err != nil {
 		if errors.Is(err, utils.UserIsNotMentor) {
 			WriteMessageResponse(w, http.StatusBadRequest, "Status update for mentors only")
 			return
@@ -244,13 +242,8 @@ func getUserIdFromToken(w http.ResponseWriter, r *http.Request) (string, bool) {
 }
 
 func GetListValues(w http.ResponseWriter, r *http.Request) {
-	var requestParams model.RequestParams
-	err := ParseJSONRequest(r, &requestParams)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
-		return
-	}
-	listOfValues, err := database.GetValuesForSelect(requestParams)
+	queryParameters := r.URL.Query()
+	listOfValues, err := database.GetValuesForSelect(queryParameters)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error reading values from database")
 	}

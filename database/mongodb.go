@@ -75,7 +75,6 @@ func getOffsetAndLimit(params url.Values) (int, int, error) {
 
 func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
 	filter := bson.M{
-		"isMentor":   true,
 		"isApproved": true,
 	}
 
@@ -107,7 +106,6 @@ func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
 
 func getFilterForTopMentorList() bson.M {
 	return bson.M{
-		"isMentor":    true,
 		"isApproved":  true,
 		"isTopMentor": true,
 	}
@@ -191,7 +189,7 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	return user
 }
 
-func UpdateUser(user model.User, id string) error {
+func UpdateUser(user model.User, id string) (model.User, error) {
 	user.IsNewUser = false
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	collection := GetCollection("users")
@@ -201,11 +199,11 @@ func UpdateUser(user model.User, id string) error {
 	defer cancel()
 	_, err := collection.UpdateOne(ctx, filter, updateOp)
 	if err != nil {
-		return err
+		return model.User{}, err
 	}
-
+	userAfterUpdate := GetUserByID(id)
 	log.Printf("User(id: %s) updated successfully!\n", id)
-	return nil
+	return userAfterUpdate, nil
 }
 
 func GetListOfFilterFields() ([]map[string]interface{}, error) {
@@ -389,27 +387,32 @@ func GetCurrentState(userId string) model.UserState {
 	return user
 }
 
-func UpdateUserState(asMentor bool, userId string) error {
+func UpdateUserState(userId string) error {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind, "isMentor": true}
+	filter := bson.M{"_id": idToFind}
+	var user model.User
+	err := collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		handleFindError(err, userId)
+		return err
+	}
+
+	filter = bson.M{"_id": idToFind}
 	update := bson.M{
 		"$set": bson.M{
-			"asMentor": asMentor,
+			"asMentor": !user.AsMentor,
 		},
 	}
-	result, err := collection.UpdateOne(ctx, filter, update)
+	_, err = collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		log.Printf("Failed to update user(%s) state: %v\n", userId, err)
 		return err
 	}
-	if result.ModifiedCount == 0 {
-		return utils.UserIsNotMentor
-	}
 
-	log.Printf("User(id: %s) updated successfully!\n", userId)
+	log.Printf("User(id: %s) state updated successfully!\n", userId)
 	return nil
 }
 
@@ -511,14 +514,22 @@ func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
 	return user.BestMentors, nil
 }
 
-func GetValuesForSelect(params model.RequestParams) ([]model.ValuesToSelect, error) {
+func GetValuesForSelect(params url.Values) ([]model.ValuesToSelect, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection("selectValues")
-	filter := bson.M{
-		"name": bson.M{"$in": params.Fields},
+	filterArray := strings.Split(params.Get("fields"), ",")
+	var cursor *mongo.Cursor
+	var err error
+	if len(filterArray) > 0 && filterArray[0] != "" {
+		filter := bson.M{
+			"name": bson.M{"$in": filterArray},
+		}
+		cursor, err = collection.Find(ctx, filter)
+	} else {
+		cursor, err = collection.Find(ctx, bson.D{})
 	}
-	cursor, err := collection.Find(ctx, filter)
+
 	if err != nil {
 		log.Printf("Failed to get values from collection selectValues from DB: %v\n", err)
 		return nil, err

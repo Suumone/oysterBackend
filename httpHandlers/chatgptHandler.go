@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	OpenApiModel = openai.GPT4
+	OpenApiModel = openai.GPT3Dot5Turbo1106
 )
 
 var (
@@ -135,10 +135,17 @@ func sendRequestToChatgpt(request string, userId string) ([]model.MentorForReque
 }
 
 func getMentorsFilteredWithChatgpt(mentorsForRequest []model.MentorForRequest, mentorsIds []string) []model.MentorForRequest {
-	var filteredMentors []model.MentorForRequest
+	filteredMentors := []model.MentorForRequest{}
 	for _, mentor := range mentorsForRequest {
 		for _, id := range mentorsIds {
 			if mentor.MentorId == id {
+				imageResult, err := database.GetUserPictureByUserId(id)
+				if err == nil {
+					mentor.UserImage.UserId = imageResult.UserId
+					mentor.UserImage.Image = imageResult.Image
+					mentor.UserImage.Extension = imageResult.Extension
+				}
+
 				filteredMentors = append(filteredMentors, mentor)
 				break
 			}

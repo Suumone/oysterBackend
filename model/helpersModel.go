@@ -22,6 +22,7 @@ type PasswordChange struct {
 type Auth struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	AsMentor bool   `json:"asMentor"`
 }
 
 type RequestParams struct {

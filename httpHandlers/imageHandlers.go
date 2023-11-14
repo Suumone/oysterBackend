@@ -18,7 +18,6 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
 	}
-	userId = "65107e2d72355f1b2610c60b"
 	err = r.ParseMultipartForm(utils.ImageLimitSizeMB)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
