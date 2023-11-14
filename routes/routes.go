@@ -19,6 +19,8 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Get("/getUserImage", httpHandlers.GetUserImage)
 	r.Get("/getImageConfigurations", httpHandlers.GetImageConfigurations)
 	r.Get("/getListValues", httpHandlers.GetListValues)
+	r.Get("/getUserAvailableWeekdays", httpHandlers.GetUserAvailableWeekdays)
+	r.Get("/getUserAvailableSlots", httpHandlers.GetUserAvailableSlots)
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)
