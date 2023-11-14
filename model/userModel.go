@@ -4,7 +4,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
-	Username               string               `json:"name" bson:"name,omitempty"`
+	Username               string               `json:"name,omitempty" bson:"name,omitempty"`
 	ProfileImageId         primitive.ObjectID   `json:"-" bson:"profileImageId,omitempty"`
 	Company                string               `json:"company,omitempty" bson:"company,omitempty"`
 	Email                  string               `json:"email,omitempty" bson:"email,omitempty"`
@@ -30,6 +30,7 @@ type User struct {
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
 	UserImage              UserImageResult      `json:"userImage,omitempty" bson:"userImage,omitempty"`
 	UserMentorRequest      string               `json:"userMentorRequest,omitempty" bson:"userMentorRequest,omitempty"`
+	Availability           []Availability       `json:"availability,omitempty" bson:"availability,omitempty"`
 }
 
 type CountryDescription struct {
@@ -65,4 +66,10 @@ type UserImageResult struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
 	Image     string             `json:"image" bson:"image"`
 	Extension string             `json:"extension" bson:"extension"`
+}
+
+type Availability struct {
+	Weekday  string `json:"weekday" bson:"weekday"`
+	TimeFrom string `json:"timeFrom" bson:"timeFrom"`
+	TimeTo   string `json:"timeTo" bson:"timeTo"`
 }

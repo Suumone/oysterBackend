@@ -5,6 +5,7 @@ import (
 	"oysterProject/model"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const ImageLimitSizeMB = 1024 * 1024 * 5 //5 MB
@@ -39,4 +40,25 @@ func Contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func GetDayOfWeek(day string) time.Weekday {
+	switch day {
+	case "Mon":
+		return time.Monday
+	case "Tue":
+		return time.Tuesday
+	case "Wed":
+		return time.Wednesday
+	case "Thu":
+		return time.Thursday
+	case "Fri":
+		return time.Friday
+	case "Sat":
+		return time.Saturday
+	case "Sun":
+		return time.Sunday
+	default:
+		return time.Monday
+	}
 }
