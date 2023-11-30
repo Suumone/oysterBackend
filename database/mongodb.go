@@ -40,7 +40,7 @@ func GetMentors(params url.Values, userId string) ([]model.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fetchMentors(filter, offset, limit)
+	return fetchMentors(filter, offset, limit, nil)
 }
 
 func GetTopMentors(params url.Values) ([]model.User, error) {
@@ -49,7 +49,8 @@ func GetTopMentors(params url.Values) ([]model.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fetchMentors(filter, offset, limit)
+	sortBson := bson.D{{"topMentorOrder", 1}}
+	return fetchMentors(filter, offset, limit, sortBson)
 }
 
 func getOffsetAndLimit(params url.Values) (int, int, error) {
@@ -111,7 +112,7 @@ func getFilterForTopMentorList() bson.M {
 	}
 }
 
-func fetchMentors(filter bson.M, offset int, limit int) ([]model.User, error) {
+func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]model.User, error) {
 	collection := GetCollection("users")
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -121,6 +122,9 @@ func fetchMentors(filter bson.M, offset int, limit int) ([]model.User, error) {
 	}
 	if limit != 0 {
 		opts = opts.SetLimit(int64(limit))
+	}
+	if sortBson != nil {
+		opts.SetSort(sortBson)
 	}
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
