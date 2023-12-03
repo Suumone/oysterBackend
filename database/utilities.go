@@ -15,6 +15,7 @@ var fieldTypes = map[string]string{
 	"language":                   "array",
 	"countryDescription.country": "array",
 	"mentorsTopics.topic":        "array",
+	"areaOfExpertise.area":       "array",
 	"experience":                 "number",
 	"offset":                     "options",
 	"limit":                      "options",

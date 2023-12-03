@@ -6,31 +6,30 @@ type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
 	Username               string               `json:"name" bson:"name,omitempty"`
 	ProfileImageId         primitive.ObjectID   `json:"-" bson:"profileImageId,omitempty"`
-	Company                string               `json:"company" bson:"company,omitempty"`
-	Email                  string               `json:"email" bson:"email,omitempty"`
-	JobTitle               string               `json:"jobTitle" bson:"jobTitle,omitempty"`
-	FacebookLink           string               `json:"facebookLink" bson:"facebookLink,omitempty"`
-	InstagramLink          string               `json:"instagramLink" bson:"instagramLink,omitempty"`
-	LinkedInLink           string               `json:"linkedinLink" bson:"linkedinLink,omitempty"`
-	CalendlyLink           string               `json:"calendlyLink" bson:"calendlyLink,omitempty"`
-	IsMentor               bool                 `json:"isMentor" bson:"isMentor"`
-	WelcomeText            string               `json:"welcomeText" bson:"welcomeText,omitempty"`
-	ProfessionalExperience string               `json:"professionalExperience" bson:"professionalExperience,omitempty"`
-	Language               []string             `json:"language" bson:"language,omitempty"`
-	Skill                  []string             `json:"skill" bson:"skill,omitempty"`
-	Experience             float32              `json:"experience" bson:"experience,omitempty"`
-	AreaOfExpertise        string               `json:"areaOfExpertise" bson:"areaOfExpertise,omitempty"`
-	CountryDescription     []CountryDescription `json:"countryDescription" bson:"countryDescription,omitempty"`
-	MentorsTopics          []MentorsTopics      `json:"mentorsTopics" bson:"mentorsTopics,omitempty"`
-	Prices                 []Price              `json:"prices" bson:"prices,omitempty"`
-	IndustryExpertise      []string             `json:"industryExpertise" bson:"industryExpertise,omitempty"`
+	Company                string               `json:"company,omitempty" bson:"company,omitempty"`
+	Email                  string               `json:"email,omitempty" bson:"email,omitempty"`
+	JobTitle               string               `json:"jobTitle,omitempty" bson:"jobTitle,omitempty"`
+	FacebookLink           string               `json:"facebookLink,omitempty" bson:"facebookLink,omitempty"`
+	InstagramLink          string               `json:"instagramLink,omitempty" bson:"instagramLink,omitempty"`
+	LinkedInLink           string               `json:"linkedinLink,omitempty" bson:"linkedinLink,omitempty"`
+	CalendlyLink           string               `json:"calendlyLink,omitempty" bson:"calendlyLink,omitempty"`
+	WelcomeText            string               `json:"welcomeText,omitempty" bson:"welcomeText,omitempty"`
+	ProfessionalExperience string               `json:"professionalExperience,omitempty" bson:"professionalExperience,omitempty"`
+	Language               []string             `json:"language,omitempty" bson:"language,omitempty"`
+	Skill                  []string             `json:"skill,omitempty" bson:"skill,omitempty"`
+	Experience             float32              `json:"-" bson:"experience,omitempty"`
+	AreaOfExpertise        []AreaOfExpertise    `json:"areaOfExpertise,omitempty" bson:"areaOfExpertise,omitempty"`
+	CountryDescription     []CountryDescription `json:"countryDescription,omitempty" bson:"countryDescription,omitempty"`
+	MentorsTopics          []MentorsTopics      `json:"mentorsTopics,omitempty" bson:"mentorsTopics,omitempty"`
+	Prices                 []Price              `json:"prices,omitempty" bson:"prices,omitempty"`
+	IndustryExpertise      []string             `json:"industryExpertise,omitempty" bson:"industryExpertise,omitempty"`
 	Password               string               `json:"-" bson:"password,omitempty"`
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
-	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
-	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
+	IsApproved             bool                 `json:"isApproved,omitempty" bson:"isApproved,omitempty"`
+	IsTopMentor            bool                 `json:"isTopMentor,omitempty" bson:"isTopMentor,omitempty"`
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
 	UserImage              UserImageResult      `json:"userImage,omitempty" bson:"userImage,omitempty"`
-	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
+	UserMentorRequest      string               `json:"userMentorRequest,omitempty" bson:"userMentorRequest,omitempty"`
 }
 
 type CountryDescription struct {
@@ -45,6 +44,11 @@ type MentorsTopics struct {
 
 type Price struct {
 	Price string `json:"price" bson:"price,omitempty"`
+}
+
+type AreaOfExpertise struct {
+	Area       string  `json:"area" bson:"area,omitempty"`
+	Experience float32 `json:"experience" bson:"experience,omitempty"`
 }
 
 type UserState struct {

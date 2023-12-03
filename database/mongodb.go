@@ -562,3 +562,23 @@ func UpdateMentorRequest(request string, id string) {
 
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
 }
+
+func GetTotalUserExperience(userId string) (float32, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	idToFind, _ := primitive.ObjectIDFromHex(userId)
+	filter := bson.M{"_id": idToFind}
+	opts := options.FindOne().SetProjection(bson.M{"areaOfExpertise": 1})
+	collection := GetCollection("users")
+	var user model.User
+	err := collection.FindOne(ctx, filter, opts).Decode(&user)
+	if err != nil {
+		handleFindError(err, userId)
+		return -1, err
+	}
+	var totalExperience float32 = 0
+	for _, entry := range user.AreaOfExpertise {
+		totalExperience += entry.Experience
+	}
+	return totalExperience, nil
+}
