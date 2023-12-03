@@ -190,6 +190,16 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 		}
 	}
 
+	for _, review := range user.Reviews {
+		imageResult, err := GetUserPictureByUserId(review.Reviewer.Id.Hex())
+		if err != nil && !errors.Is(err, utils.UserImageNotFound) {
+			log.Printf("Failed to find image for user(%s): %v\n", review.Reviewer.Id.Hex(), err)
+		}
+		review.Reviewer.UserImage.UserId = imageResult.UserId
+		review.Reviewer.UserImage.Image = imageResult.Image
+		review.Reviewer.UserImage.Extension = imageResult.Extension
+	}
+
 	return user
 }
 
@@ -312,6 +322,15 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 		if err != nil {
 			return []model.ReviewsForFrontPage{}
 		}
+
+		imageResult, err := GetUserPictureByUserId(review.ReviewerId.Hex())
+		if err != nil {
+			log.Printf("Failed to find image for user(%s): %v\n", review.UserId.Hex(), err)
+		}
+		review.UserImage.UserId = imageResult.UserId
+		review.UserImage.Image = imageResult.Image
+		review.UserImage.Extension = imageResult.Extension
+
 		result = append(result, review)
 	}
 	return result
@@ -561,24 +580,4 @@ func UpdateMentorRequest(request string, id string) {
 	}
 
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
-}
-
-func GetTotalUserExperience(userId string) (float32, error) {
-	ctx, cancel := withTimeout(context.Background())
-	defer cancel()
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
-	opts := options.FindOne().SetProjection(bson.M{"areaOfExpertise": 1})
-	collection := GetCollection("users")
-	var user model.User
-	err := collection.FindOne(ctx, filter, opts).Decode(&user)
-	if err != nil {
-		handleFindError(err, userId)
-		return -1, err
-	}
-	var totalExperience float32 = 0
-	for _, entry := range user.AreaOfExpertise {
-		totalExperience += entry.Experience
-	}
-	return totalExperience, nil
 }

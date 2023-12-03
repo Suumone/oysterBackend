@@ -84,7 +84,6 @@ func GetFrontPageReviewsPipeline() mongo.Pipeline {
 			{"date", 1},
 			{"name", "$reviewerInfo.name"},
 			{"jobTitle", "$reviewerInfo.jobTitle"},
-			{"profileImage", "$reviewerInfo.profileImage"},
 			{"reviewerId", "$reviewerInfo._id"},
 		}}},
 	}
