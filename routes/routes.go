@@ -9,6 +9,14 @@ import (
 )
 
 func ConfigureRoutes(r *chi.Mux) {
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/", httpHandlers.HandleEmailPassAuth)
+		r.Get("/google", httpHandlers.HandleGoogleAuth)
+		r.Get("/google/callback", httpHandlers.HandleAuthCallback)
+	})
+	r.Post("/signIn", httpHandlers.HandleSignIn)
+	r.With(httpHandlers.JWTMiddleware).Post("/signOut", httpHandlers.HandleLogOut)
+
 	r.With(httpHandlers.JWTMiddleware).Get("/getMentorList", httpHandlers.GetMentorsList)
 	r.With(httpHandlers.JWTMiddleware).Post("/calculateBestMentors", httpHandlers.CalculateBestMentors)
 
@@ -19,16 +27,9 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Get("/getUserImage", httpHandlers.GetUserImage)
 	r.Get("/getImageConfigurations", httpHandlers.GetImageConfigurations)
 	r.Get("/getListValues", httpHandlers.GetListValues)
+
 	r.Get("/getUserAvailableWeekdays", httpHandlers.GetUserAvailableWeekdays)
 	r.Get("/getUserAvailableSlots", httpHandlers.GetUserAvailableSlots)
-
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/", httpHandlers.HandleEmailPassAuth)
-		r.Get("/google", httpHandlers.HandleGoogleAuth)
-		r.Get("/google/callback", httpHandlers.HandleAuthCallback)
-	})
-	r.Post("/signIn", httpHandlers.HandleSignIn)
-	r.With(httpHandlers.JWTMiddleware).Post("/signOut", httpHandlers.HandleLogOut)
 
 	r.With(httpHandlers.JWTMiddleware).Route("/myProfile", func(r chi.Router) {
 		r.Get("/", httpHandlers.GetProfileByToken)
@@ -37,6 +38,15 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Get("/getCurrentState", httpHandlers.GetCurrentState)
 		r.Post("/updateCurrentState", httpHandlers.UpdateCurrentState)
 		r.Post("/uploadProfilePicture", httpHandlers.UploadUserImage)
+	})
+
+	r.With(httpHandlers.JWTMiddleware).Route("/session", func(r chi.Router) {
+		r.Get("/", httpHandlers.GetSession)
+		r.Get("/getUserSessions", httpHandlers.GetUserSessions)
+		r.Post("/create", httpHandlers.CreateSession)
+		r.Post("/rescheduleRequest", httpHandlers.RescheduleRequest)
+		r.Post("/confirmRescheduleRequest", httpHandlers.ConfirmRescheduleRequest)
+		r.Post("/cancelRescheduleRequest", httpHandlers.CancelRescheduleRequest)
 	})
 }
 

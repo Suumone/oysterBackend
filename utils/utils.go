@@ -62,3 +62,9 @@ func GetDayOfWeek(day string) time.Weekday {
 		return time.Monday
 	}
 }
+
+func GetStatusText(session *model.Session) {
+	session.StatusForMentee = session.SessionStatus.GetStatusForMentee()
+	session.StatusForMentor = session.SessionStatus.GetStatusForMentor()
+	session.Status = session.SessionStatus.String()
+}

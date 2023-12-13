@@ -37,12 +37,12 @@ func convertStringToNumber(s string) float32 {
 	return float32(f)
 }
 
-func handleFindError(err error, subject string) {
+func handleFindError(err error, subject, documentType string) {
 	switch {
 	case errors.Is(err, mongo.ErrNoDocuments):
-		log.Printf("document(%s) not found", subject)
+		log.Printf("%s document(%s) not found", documentType, subject)
 	default:
-		log.Printf("Failed to find %s: %v", subject, err)
+		log.Printf("Failed to find document %s id %s, error: %v", documentType, subject, err)
 	}
 }
 

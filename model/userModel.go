@@ -28,7 +28,7 @@ type User struct {
 	IsApproved             bool                 `json:"isApproved,omitempty" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor,omitempty" bson:"isTopMentor,omitempty"`
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
-	UserImage              UserImageResult      `json:"userImage,omitempty" bson:"userImage,omitempty"`
+	UserImage              *UserImageResult     `json:"userImage,omitempty" bson:"userImage,omitempty"`
 	UserMentorRequest      string               `json:"userMentorRequest,omitempty" bson:"userMentorRequest,omitempty"`
 	Availability           []Availability       `json:"availability,omitempty" bson:"availability,omitempty"`
 }

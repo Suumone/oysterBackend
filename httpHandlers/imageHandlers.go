@@ -13,7 +13,7 @@ import (
 var allowedExtensions = []string{".jpg", ".jpeg", ".png", ".heic"}
 
 func UploadUserImage(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
@@ -58,7 +58,7 @@ func GetUserImage(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	var userId string
 	if len(queryParameters) == 0 {
-		id, err := getUserIdFromRequest(r)
+		id, err := getUserIdFromToken(r)
 		if err != nil {
 			WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 			return
