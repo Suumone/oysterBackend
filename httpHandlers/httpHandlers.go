@@ -16,7 +16,7 @@ import (
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
@@ -40,7 +40,7 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
 				return
 			}
-			users[i].UserImage = userImage
+			users[i].UserImage = &userImage
 		}
 	}
 
@@ -106,7 +106,7 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
@@ -121,7 +121,7 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
@@ -159,7 +159,7 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, userForExperienceUpdate)
 }
 
-func getUserIdFromRequest(r *http.Request) (string, error) {
+func getUserIdFromToken(r *http.Request) (string, error) {
 	claims, err := getTokenClaimsFromRequest(r)
 	if err != nil {
 		return "", err
@@ -204,14 +204,14 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
 				return
 			}
-			users[i].UserImage = userImage
+			users[i].UserImage = &userImage
 		}
 	}
 	WriteJSONResponse(w, http.StatusOK, users)
 }
 
 func GetCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return
@@ -225,7 +225,7 @@ func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromRequest(r)
+	userId, err := getUserIdFromToken(r)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
 		return

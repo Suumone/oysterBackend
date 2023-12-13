@@ -46,14 +46,14 @@ func GetUserAvailableWeekdays(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, result)
 }
 
-func calculateAvailableWeekdays(availabilities []model.Availability, startDate, endDate time.Time) []AvailableWeekday {
-	var result []AvailableWeekday
+func calculateAvailableWeekdays(availabilities []model.Availability, startDate, endDate time.Time) []model.AvailableWeekday {
+	var result []model.AvailableWeekday
 
 	uniqueWeekdays := getUniqueWeekdays(availabilities)
 	currentDate := startDate
 	for currentDate.Before(endDate) || currentDate.Equal(endDate) {
 		if slices.Contains(uniqueWeekdays, currentDate.Weekday()) {
-			result = append(result, AvailableWeekday{Date: currentDate, Weekday: currentDate.Weekday().String()})
+			result = append(result, model.AvailableWeekday{Date: currentDate, Weekday: currentDate.Weekday().String()})
 		}
 
 		currentDate = currentDate.Add(24 * time.Hour)
@@ -117,8 +117,8 @@ func getUserByID(userId string) (model.User, error) {
 	return user, nil
 }
 
-func calculateAvailability(availabilities []model.Availability, startDate, endDate time.Time) []TimeSlot {
-	var result []TimeSlot
+func calculateAvailability(availabilities []model.Availability, startDate, endDate time.Time) []model.TimeSlot {
+	var result []model.TimeSlot
 
 	currentDate := startDate
 	for currentDate.Before(endDate) || currentDate.Equal(endDate) {
@@ -133,14 +133,14 @@ func calculateAvailability(availabilities []model.Availability, startDate, endDa
 	return result
 }
 
-func getSlots(availability model.Availability, currentDate time.Time) []TimeSlot {
-	var result []TimeSlot
+func getSlots(availability model.Availability, currentDate time.Time) []model.TimeSlot {
+	var result []model.TimeSlot
 
 	availabilityStart, availabilityEnd := getAvailabilityTimeRange(availability, currentDate)
 
 	for current := availabilityStart; current.Before(availabilityEnd); current = current.Add(minimumTimeBetweenSessions) {
 		if current.Before(availabilityEnd.Add(sessionDuration)) {
-			result = append(result, TimeSlot{StartTime: current, EndTime: current.Add(sessionDuration)})
+			result = append(result, model.TimeSlot{StartTime: current, EndTime: current.Add(sessionDuration)})
 		}
 	}
 	return result
@@ -171,12 +171,133 @@ func parseHoursAndMinutes(timeStr string) (int, int) {
 	return hours, minutes
 }
 
-type AvailableWeekday struct {
-	Date    time.Time `json:"date"`
-	Weekday string    `json:"weekday"`
+func CreateSession(w http.ResponseWriter, r *http.Request) {
+	var session model.Session
+	err := ParseJSONRequest(r, &session)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session create request")
+		return
+	}
+	session.SessionStatus = model.PendingByMentor
+	session.SessionId, err = database.CreateSession(session)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusInternalServerError, "Database session insert error: "+err.Error())
+		return
+	}
+	utils.GetStatusText(&session)
+	WriteJSONResponse(w, http.StatusCreated, session)
 }
 
-type TimeSlot struct {
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
+func GetSession(w http.ResponseWriter, r *http.Request) {
+	queryParameters := r.URL.Query()
+	id := queryParameters.Get("id")
+	session, err := database.GetSession(id)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusNotFound, "Session not found")
+		return
+	}
+
+	utils.GetStatusText(&session)
+	WriteJSONResponse(w, http.StatusCreated, session)
+}
+
+func GetUserSessions(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIdFromToken(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	user, err := getUserByID(userId)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	sessions, err := database.GetUserSessions(user)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error during search session")
+		return
+	}
+	sessionsResponse := groupSessionsByStatus(sessions)
+	WriteJSONResponse(w, http.StatusOK, sessionsResponse)
+}
+
+func groupSessionsByStatus(sessions []model.Session) model.GroupedSessions {
+	groupedSessions := model.GroupedSessions{}
+	for _, session := range sessions {
+		switch {
+		case session.SessionStatus < model.Confirmed:
+			groupedSessions.PendingSessions = append(groupedSessions.PendingSessions, session)
+		case session.SessionStatus == model.Confirmed:
+			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, session)
+		case session.SessionStatus > model.Confirmed:
+			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, session)
+		}
+	}
+	return groupedSessions
+}
+
+func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIdFromToken(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+
+	var session model.Session
+	err = ParseJSONRequest(r, &session)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
+		return
+	}
+	user := database.GetUserByID(userId)
+	if user.AsMentor {
+		session.SessionStatus = model.ReschedulingByMentor
+	} else {
+		session.SessionStatus = model.ReschedulingByMentee
+	}
+	updateSession, err := database.RescheduleSession(session)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session update")
+	}
+
+	utils.GetStatusText(&updateSession)
+	WriteJSONResponse(w, http.StatusOK, updateSession)
+}
+
+func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
+	queryParameters := r.URL.Query()
+	sessionId := queryParameters.Get("sessionId")
+	if sessionId == "" {
+		WriteMessageResponse(w, http.StatusBadRequest, "Session id wasn't provided")
+		return
+	}
+	updateSession, err := database.ConfirmSession(sessionId)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session confirm")
+		return
+	}
+	utils.GetStatusText(&updateSession)
+	WriteJSONResponse(w, http.StatusOK, updateSession)
+}
+
+func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
+	userId, err := getUserIdFromToken(r)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		return
+	}
+	queryParameters := r.URL.Query()
+	sessionId := queryParameters.Get("sessionId")
+	if sessionId == "" {
+		WriteMessageResponse(w, http.StatusBadRequest, "Session id wasn't provided")
+		return
+	}
+	updateSession, err := database.CancelSession(sessionId, userId)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session cancel")
+		return
+	}
+	utils.GetStatusText(&updateSession)
+	WriteJSONResponse(w, http.StatusOK, updateSession)
 }

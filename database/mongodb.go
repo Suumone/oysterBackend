@@ -159,7 +159,7 @@ func GetUserByID(id string) model.User {
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		handleFindError(err, id)
+		handleFindError(err, id, "user")
 		return model.User{}
 	}
 
@@ -167,7 +167,7 @@ func GetUserByID(id string) model.User {
 	if err != nil && !errors.Is(err, utils.UserImageNotFound) {
 		log.Printf("Failed to find image for user(%s): %v\n", id, err)
 	}
-	user.UserImage = userImage
+	user.UserImage = &userImage
 	return user
 }
 
@@ -419,7 +419,7 @@ func UpdateUserState(userId string) error {
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		handleFindError(err, userId)
+		handleFindError(err, userId, "user")
 		return err
 	}
 
