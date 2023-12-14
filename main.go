@@ -7,6 +7,7 @@ import (
 	"os"
 	"oysterProject/database"
 	"oysterProject/routes"
+	"oysterProject/schedulerJobs"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 	database.MongoDBClient = client
 	database.MongoDBOyster = database.MongoDBClient.Database("Oyster")
 	defer database.CloseMongoDBConnection()
+	schedulerJobs.StartStatusCalculation()
 
 	r := chi.NewRouter()
 	routes.ConfigureCors(r)

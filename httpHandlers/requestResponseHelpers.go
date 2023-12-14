@@ -23,14 +23,14 @@ func WriteJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Println("Error encoding JSON response:", err)
+		log.Printf("Error encoding JSON response:%v", err)
 	}
 }
 
 func writeResponse(w http.ResponseWriter, message string) {
 	_, err := w.Write([]byte(message))
 	if err != nil {
-		log.Println("Error writing response:", err)
+		log.Printf("Error writing response:%v\n", err)
 	}
 }
 
