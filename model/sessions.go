@@ -33,6 +33,7 @@ type Session struct {
 	StatusForMentee     string             `json:"statusForMentee" bson:"-"`
 	StatusForMentor     string             `json:"statusForMentor" bson:"-"`
 	PaymentDetails      string             `json:"paymentDetails,omitempty" bson:"paymentDetails,omitempty"`
+	MeetingLink         string             `json:"meetingLink,omitempty" bson:"meetingLink,omitempty"`
 }
 
 type GroupedSessions struct {

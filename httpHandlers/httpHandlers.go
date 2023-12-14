@@ -18,7 +18,7 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	users, err := database.GetMentors(queryParameters, userId)
@@ -108,7 +108,7 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 
@@ -120,10 +120,18 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, user)
 }
 
+func getUserByID(userId string) (model.User, error) {
+	user := database.GetUserByID(userId)
+	if utils.IsEmptyStruct(user) {
+		return model.User{}, errors.New("user not found")
+	}
+	return user, nil
+}
+
 func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 
@@ -213,7 +221,7 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	userState := database.GetCurrentState(userId)
@@ -227,7 +235,7 @@ func GetCurrentState(w http.ResponseWriter, r *http.Request) {
 func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	if err := database.UpdateUserState(userId); err != nil {

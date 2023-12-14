@@ -31,6 +31,7 @@ type User struct {
 	UserImage              *UserImageResult     `json:"userImage,omitempty" bson:"userImage,omitempty"`
 	UserMentorRequest      string               `json:"userMentorRequest,omitempty" bson:"userMentorRequest,omitempty"`
 	Availability           []Availability       `json:"availability,omitempty" bson:"availability,omitempty"`
+	MeetingLink            string               `json:"meetingLink,omitempty" bson:"meetingLink,omitempty"`
 }
 
 type CountryDescription struct {

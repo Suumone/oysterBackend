@@ -1,7 +1,6 @@
 package httpHandlers
 
 import (
-	"errors"
 	"golang.org/x/exp/slices"
 	"log"
 	"net/http"
@@ -88,6 +87,11 @@ func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
+	bookedSessions, err := database.GetUserSessions(user.Id, true)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Error user sessions info from database")
+		return
+	}
 
 	endDate := time.Date(
 		startDate.Year(),
@@ -96,7 +100,7 @@ func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 		23, 59, 0, 0,
 		startDate.Location(),
 	)
-	result := calculateAvailability(user.Availability, startDate, endDate)
+	result := calculateAvailability(user.Availability, bookedSessions, startDate, endDate)
 	WriteJSONResponse(w, http.StatusOK, result)
 }
 
@@ -109,22 +113,15 @@ func parseDateParameter(dateParam string) (time.Time, error) {
 	return date, nil
 }
 
-func getUserByID(userId string) (model.User, error) {
-	user := database.GetUserByID(userId)
-	if utils.IsEmptyStruct(user) {
-		return model.User{}, errors.New("user not found")
-	}
-	return user, nil
-}
-
-func calculateAvailability(availabilities []model.Availability, startDate, endDate time.Time) []model.TimeSlot {
+func calculateAvailability(availabilities []model.Availability, bookedSessions []model.Session, startDate, endDate time.Time) []model.TimeSlot {
 	var result []model.TimeSlot
 
 	currentDate := startDate
 	for currentDate.Before(endDate) || currentDate.Equal(endDate) {
 		for _, availability := range availabilities {
 			if currentDate.Weekday() == utils.GetDayOfWeek(availability.Weekday) {
-				result = append(result, getSlots(availability, currentDate)...)
+				slots := getSlots(availability, currentDate)
+				result = append(result, excludeBookedSlots(slots, bookedSessions)...)
 			}
 		}
 
@@ -144,6 +141,26 @@ func getSlots(availability model.Availability, currentDate time.Time) []model.Ti
 		}
 	}
 	return result
+}
+
+func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []model.Session) []model.TimeSlot {
+	var availableSlots []model.TimeSlot
+
+	for _, slot := range slots {
+		isBooked := false
+		for _, bookedSlot := range bookedSessions {
+			if slot.EndTime.After(*bookedSlot.SessionTimeStart) && slot.StartTime.Before(*bookedSlot.SessionTimeEnd) && (bookedSlot.SessionStatus < 5) {
+				isBooked = true
+				break
+			}
+		}
+
+		if !isBooked {
+			availableSlots = append(availableSlots, slot)
+		}
+	}
+
+	return availableSlots
 }
 
 func getAvailabilityTimeRange(availability model.Availability, currentDate time.Time) (time.Time, time.Time) {
@@ -178,6 +195,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session create request")
 		return
 	}
+	session.MeetingLink = database.GetUserByID(session.MentorId.Hex()).MeetingLink
 	session.SessionStatus = model.PendingByMentor
 	session.SessionId, err = database.CreateSession(session)
 	if err != nil {
@@ -204,7 +222,7 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 func GetUserSessions(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	user, err := getUserByID(userId)
@@ -213,7 +231,7 @@ func GetUserSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessions, err := database.GetUserSessions(user)
+	sessions, err := database.GetUserSessions(user.Id, user.AsMentor)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error during search session")
 		return
@@ -240,7 +258,7 @@ func groupSessionsByStatus(sessions []model.Session) model.GroupedSessions {
 func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 
@@ -251,18 +269,22 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := database.GetUserByID(userId)
-	if user.AsMentor {
-		session.SessionStatus = model.ReschedulingByMentor
-	} else {
-		session.SessionStatus = model.ReschedulingByMentee
-	}
-	updateSession, err := database.RescheduleSession(session)
+	setRescheduleStatus(&session, user.AsMentor)
+	updatedSession, err := database.RescheduleSession(session)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session update")
 	}
 
-	utils.GetStatusText(&updateSession)
-	WriteJSONResponse(w, http.StatusOK, updateSession)
+	utils.GetStatusText(&updatedSession)
+	WriteJSONResponse(w, http.StatusOK, updatedSession)
+}
+
+func setRescheduleStatus(session *model.Session, isMentor bool) {
+	if isMentor {
+		session.SessionStatus = model.ReschedulingByMentor
+	} else {
+		session.SessionStatus = model.ReschedulingByMentee
+	}
 }
 
 func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +306,7 @@ func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	queryParameters := r.URL.Query()
