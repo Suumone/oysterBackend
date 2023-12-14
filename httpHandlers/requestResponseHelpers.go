@@ -33,3 +33,7 @@ func writeResponse(w http.ResponseWriter, message string) {
 		log.Println("Error writing response:", err)
 	}
 }
+
+func handleInvalidTokenResponse(w http.ResponseWriter) {
+	WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+}

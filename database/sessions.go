@@ -41,27 +41,27 @@ func GetSession(sessionId string) (model.Session, error) {
 	return session, nil
 }
 
-func GetUserSessions(user model.User) ([]model.Session, error) {
+func GetUserSessions(userId primitive.ObjectID, asMentor bool) ([]model.Session, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection("sessions")
-	filter := buildSessionFilter(user)
+	filter := buildSessionFilter(userId, asMentor)
 	cursor, err := collection.Find(ctx, filter)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, nil
 	} else if err != nil {
-		log.Printf("Failed to find sessions for mentee(%s): %v\n", user.Id.Hex(), err)
+		log.Printf("Failed to find sessions for mentee(%s): %v\n", userId.Hex(), err)
 		return nil, err
 	}
 	defer cursor.Close(context.Background())
 	return decodeSessions(cursor)
 }
 
-func buildSessionFilter(user model.User) bson.M {
-	if user.AsMentor {
-		return bson.M{"mentorId": user.Id}
+func buildSessionFilter(userId primitive.ObjectID, asMentor bool) bson.M {
+	if asMentor {
+		return bson.M{"mentorId": userId}
 	}
-	return bson.M{"menteeId": user.Id}
+	return bson.M{"menteeId": userId}
 }
 
 func decodeSessions(cursor *mongo.Cursor) ([]model.Session, error) {
@@ -81,80 +81,74 @@ func decodeSessions(cursor *mongo.Cursor) ([]model.Session, error) {
 }
 
 func RescheduleSession(session model.Session) (model.Session, error) {
-	ctx, cancel := withTimeout(context.Background())
-	defer cancel()
 	collection := GetCollection("sessions")
-	defer cancel()
 	filter := bson.M{"_id": session.SessionId}
-	updateOp := bson.M{"$set": bson.M{
-		"newSessionTimeStart": session.NewSessionTimeStart,
-		"newSessionTimeEnd":   session.NewSessionTimeEnd,
-		"sessionStatus":       session.SessionStatus,
-	}}
-	var updatedSession model.Session
-	err := collection.FindOneAndUpdate(ctx, filter, updateOp, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedSession)
-	if err != nil {
-		log.Printf("Failed to update session(%s) err: %v\n", session.SessionId.Hex(), err)
-		return model.Session{}, err
+	updateOp := bson.M{
+		"$set": bson.M{
+			"newSessionTimeStart": session.NewSessionTimeStart,
+			"newSessionTimeEnd":   session.NewSessionTimeEnd,
+			"sessionStatus":       session.SessionStatus,
+		},
 	}
-	return updatedSession, nil
+
+	return updateSession(collection, filter, updateOp)
 }
 
 func ConfirmSession(sessionId string) (model.Session, error) {
-	ctx, cancel := withTimeout(context.Background())
-	defer cancel()
 	collection := GetCollection("sessions")
-	defer cancel()
 	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
 	filter := bson.M{"_id": sessionIdObj}
+
 	session, err := GetSession(sessionId)
 	if err != nil {
 		return model.Session{}, err
 	}
-	updateOp := bson.M{"$set": bson.M{
-		"sessionTimeStart": session.NewSessionTimeStart,
-		"sessionTimeEnd":   session.NewSessionTimeEnd,
-		"sessionStatus":    model.Confirmed,
-	}, "$unset": bson.M{
-		"newSessionTimeStart": "",
-		"newSessionTimeEnd":   "",
-	}}
-	var updatedSession model.Session
-	err = collection.FindOneAndUpdate(ctx, filter, updateOp, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedSession)
-	if err != nil {
-		log.Printf("Failed to confirm session(%s) err: %v\n", session.SessionId.Hex(), err)
-		return model.Session{}, err
+
+	updateOp := bson.M{
+		"$set": bson.M{
+			"sessionTimeStart": session.NewSessionTimeStart,
+			"sessionTimeEnd":   session.NewSessionTimeEnd,
+			"sessionStatus":    model.Confirmed,
+		},
+		"$unset": bson.M{
+			"newSessionTimeStart": "",
+			"newSessionTimeEnd":   "",
+		},
 	}
 
-	return updatedSession, nil
+	return updateSession(collection, filter, updateOp)
 }
 
 func CancelSession(sessionId, userId string) (model.Session, error) {
-	ctx, cancel := withTimeout(context.Background())
-	defer cancel()
 	collection := GetCollection("sessions")
-	defer cancel()
 	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
 	filter := bson.M{"_id": sessionIdObj}
-	session, err := GetSession(sessionId)
-	if err != nil {
-		return model.Session{}, err
-	}
+
 	user := GetUserByID(userId)
 	var updateOp bson.M
 	if user.AsMentor {
-		updateOp = bson.M{"$set": bson.M{
-			"sessionStatus": model.CanceledByMentor,
-		}}
+		updateOp = bson.M{"$set": bson.M{"sessionStatus": model.CanceledByMentor}}
 	} else {
-		updateOp = bson.M{"$set": bson.M{
-			"sessionStatus": model.CanceledByMentee,
-		}}
+		updateOp = bson.M{"$set": bson.M{"sessionStatus": model.CanceledByMentee}}
 	}
+
+	return updateSession(collection, filter, updateOp)
+}
+
+func updateSession(collection *mongo.Collection, filter bson.M, updateOp bson.M) (model.Session, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+
 	var updatedSession model.Session
-	err = collection.FindOneAndUpdate(ctx, filter, updateOp, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedSession)
+	err := collection.FindOneAndUpdate(
+		ctx,
+		filter,
+		updateOp,
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(&updatedSession)
+
 	if err != nil {
-		log.Printf("Failed to confirm session(%s) err: %v\n", session.SessionId.Hex(), err)
+		log.Printf("Failed to update session(%s) err: %v\n", filter["_id"], err)
 		return model.Session{}, err
 	}
 

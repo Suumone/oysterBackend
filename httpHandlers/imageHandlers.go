@@ -15,7 +15,7 @@ var allowedExtensions = []string{".jpg", ".jpeg", ".png", ".heic"}
 func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 	userId, err := getUserIdFromToken(r)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+		handleInvalidTokenResponse(w)
 		return
 	}
 	err = r.ParseMultipartForm(utils.ImageLimitSizeMB)
@@ -60,7 +60,7 @@ func GetUserImage(w http.ResponseWriter, r *http.Request) {
 	if len(queryParameters) == 0 {
 		id, err := getUserIdFromToken(r)
 		if err != nil {
-			WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+			handleInvalidTokenResponse(w)
 			return
 		}
 		userId = id
