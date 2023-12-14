@@ -13,9 +13,9 @@ const (
 	ReschedulingByMentor
 	ReschedulingByMentee
 	Confirmed
+	Completed
 	CanceledByMentor
 	CanceledByMentee
-	Completed
 	Expired
 )
 
