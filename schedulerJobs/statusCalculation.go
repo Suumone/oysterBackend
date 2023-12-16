@@ -24,7 +24,6 @@ func StartStatusCalculation() {
 }
 
 func statusCalculation() {
-	log.Println("statusCalculation")
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	defer cancel()
 	sessionCollection := database.GetCollection("sessions")
