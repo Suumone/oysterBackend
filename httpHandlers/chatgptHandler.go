@@ -62,6 +62,14 @@ func mapUserToMentorForRequest(user model.User) model.MentorForRequest {
 		})
 	}
 
+	for _, price := range user.Prices {
+		mentor.Prices = append(mentor.Prices, struct {
+			Price string `json:"price"`
+		}{
+			Price: price.Price,
+		})
+	}
+
 	return mentor
 }
 

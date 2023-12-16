@@ -22,6 +22,9 @@ type MentorForRequest struct {
 		Country     string `json:"country"`
 		Description string `json:"description"`
 	} `json:"countryDescription"`
+	Prices []struct {
+		Price string `json:"price"`
+	} `json:"prices"`
 	IndustryExpertise []string `json:"industryExpertise"`
 	JobTitle          string   `json:"jobTitle"`
 	Language          []string `json:"language"`

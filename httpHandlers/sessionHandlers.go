@@ -197,6 +197,8 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 	}
 	session.MeetingLink = database.GetUserByID(session.MentorId.Hex()).MeetingLink
 	session.SessionStatus = model.PendingByMentor
+	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
+	session.SessionTimeEnd = &sessionTimeEnd
 	session.SessionId, err = database.CreateSession(session)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Database session insert error: "+err.Error())
@@ -269,6 +271,8 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := database.GetUserByID(userId)
+	sessionTimeEnd := (*session.NewSessionTimeStart).Add(60 * time.Minute)
+	session.NewSessionTimeEnd = &sessionTimeEnd
 	setRescheduleStatus(&session, user.AsMentor)
 	updatedSession, err := database.RescheduleSession(session)
 	if err != nil {

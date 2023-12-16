@@ -50,6 +50,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		authHeader := strings.Split(r.Header.Get("Authorization"), "Bearer ")
 		if len(authHeader) != 2 {
 			WriteJSONResponse(w, http.StatusForbidden, "Missing or malformed JWT")
+			log.Printf("Missing or malformed JWT. Headers:%s", r.Header)
 			return
 		}
 
