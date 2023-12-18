@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -494,7 +493,7 @@ func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 	}
 	userImageResult := model.UserImageResult{
 		UserId:    userImage.UserId,
-		Image:     base64.StdEncoding.EncodeToString(userImage.Image[0]),
+		Image:     userImage.Image,
 		Extension: userImage.Extension,
 	}
 	return userImageResult, nil
@@ -580,4 +579,29 @@ func UpdateMentorRequest(request string, id string) {
 	}
 
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
+}
+
+func GetUsersWithImages(userIds []primitive.ObjectID) ([]model.UserImageResult, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	imagesForUsersPipeline := GetImagesForUsersPipeline(userIds)
+	usersColl := GetCollection("users")
+	cursor, err := usersColl.Aggregate(ctx, imagesForUsersPipeline)
+	if err != nil {
+		log.Printf("Failed to aggregate user with image: %v", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []model.UserImageResult
+	for cursor.Next(ctx) {
+		var user model.UserImageResult
+		err := cursor.Decode(&user)
+		if err != nil {
+			log.Printf("Failed to decode user with image: %v", err)
+			return nil, err
+		}
+		result = append(result, user)
+	}
+	return result, nil
 }

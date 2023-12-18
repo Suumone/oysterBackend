@@ -1,6 +1,8 @@
 package model
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
@@ -60,12 +62,14 @@ type UserState struct {
 
 type UserImage struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	Image     [][]byte           `json:"image" bson:"image"`
+	Name      string             `json:"name,omitempty" bson:"name,omitempty"`
+	Image     []byte             `json:"image" bson:"image"`
 	Extension string             `json:"extension" bson:"extension"`
 }
 type UserImageResult struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	Image     string             `json:"image" bson:"image"`
+	Name      string             `json:"name,omitempty" bson:"name,omitempty"`
+	Image     []byte             `json:"image" bson:"image"`
 	Extension string             `json:"extension" bson:"extension"`
 }
 
