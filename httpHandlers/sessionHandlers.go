@@ -113,7 +113,7 @@ func parseDateParameter(dateParam string) (time.Time, error) {
 	return date, nil
 }
 
-func calculateAvailability(availabilities []model.Availability, bookedSessions []model.Session, startDate, endDate time.Time) []model.TimeSlot {
+func calculateAvailability(availabilities []model.Availability, bookedSessions []model.SessionResponse, startDate, endDate time.Time) []model.TimeSlot {
 	var result []model.TimeSlot
 
 	currentDate := startDate
@@ -143,7 +143,7 @@ func getSlots(availability model.Availability, currentDate time.Time) []model.Ti
 	return result
 }
 
-func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []model.Session) []model.TimeSlot {
+func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []model.SessionResponse) []model.TimeSlot {
 	var availableSlots []model.TimeSlot
 
 	for _, slot := range slots {
@@ -195,17 +195,24 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session create request")
 		return
 	}
-	session.MeetingLink = database.GetUserByID(session.MentorId.Hex()).MeetingLink
-	session.SessionStatus = model.PendingByMentor
-	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
-	session.SessionTimeEnd = &sessionTimeEnd
-	session.SessionId, err = database.CreateSession(session)
+	setSessionDetails(&session)
+	updatedSession, err := database.CreateSession(session)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Database session insert error: "+err.Error())
 		return
 	}
-	utils.GetStatusText(&session)
-	WriteJSONResponse(w, http.StatusCreated, session)
+	WriteJSONResponse(w, http.StatusCreated, updatedSession)
+}
+
+func setSessionDetails(session *model.Session) {
+	mentor := database.GetUserByID(session.MentorId.Hex())
+	session.MeetingLink = mentor.MeetingLink
+	if mentor.Prices != nil {
+		session.PaymentDetails = mentor.Prices[0].Price
+	}
+	session.SessionStatus = model.PendingByMentor
+	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
+	session.SessionTimeEnd = &sessionTimeEnd
 }
 
 func GetSession(w http.ResponseWriter, r *http.Request) {
@@ -216,8 +223,6 @@ func GetSession(w http.ResponseWriter, r *http.Request) {
 		WriteJSONResponse(w, http.StatusNotFound, "Session not found")
 		return
 	}
-
-	utils.GetStatusText(&session)
 	WriteJSONResponse(w, http.StatusCreated, session)
 }
 
@@ -242,7 +247,7 @@ func GetUserSessions(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, sessionsResponse)
 }
 
-func groupSessionsByStatus(sessions []model.Session) model.GroupedSessions {
+func groupSessionsByStatus(sessions []model.SessionResponse) model.GroupedSessions {
 	groupedSessions := model.GroupedSessions{}
 	for _, session := range sessions {
 		switch {
@@ -278,8 +283,6 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session update")
 	}
-
-	utils.GetStatusText(&updatedSession)
 	WriteJSONResponse(w, http.StatusOK, updatedSession)
 }
 
@@ -303,7 +306,6 @@ func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session confirm")
 		return
 	}
-	utils.GetStatusText(&updateSession)
 	WriteJSONResponse(w, http.StatusOK, updateSession)
 }
 
@@ -324,6 +326,5 @@ func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session cancel")
 		return
 	}
-	utils.GetStatusText(&updateSession)
 	WriteJSONResponse(w, http.StatusOK, updateSession)
 }

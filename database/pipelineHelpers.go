@@ -127,3 +127,42 @@ func GetImageForUserPipeline(idToFind primitive.ObjectID) bson.A {
 	}
 	return pipeline
 }
+
+func GetImagesForUsersPipeline(idsToFind []primitive.ObjectID) bson.A {
+	pipeline := bson.A{
+		bson.D{{"$match", bson.D{{"_id", bson.D{{"$in", idsToFind}}}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "fs.files"},
+					{"localField", "profileImageId"},
+					{"foreignField", "_id"},
+					{"as", "profileImage"},
+				},
+			},
+		},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "fs.chunks"},
+					{"localField", "profileImage._id"},
+					{"foreignField", "files_id"},
+					{"as", "profileImageData"},
+				},
+			},
+		},
+		bson.D{
+			{"$project",
+				bson.D{
+					{"_id", 0},
+					{"userId", "$_id"},
+					{"image", bson.D{{"$first", "$profileImageData.data"}}},
+					{"extension", bson.D{{"$first", "$profileImage.metadata.extension"}}},
+					{"name", "$name"},
+				},
+			},
+		},
+	}
+
+	return pipeline
+}

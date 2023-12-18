@@ -12,12 +12,10 @@ import (
 
 func main() {
 	log.Println("Application started")
-	client, err := database.ConnectToMongoDB()
+	err := database.ConnectToMongoDB()
 	if err != nil {
 		log.Fatal(err)
 	}
-	database.MongoDBClient = client
-	database.MongoDBOyster = database.MongoDBClient.Database("Oyster")
 	defer database.CloseMongoDBConnection()
 	schedulerJobs.StartStatusCalculation()
 

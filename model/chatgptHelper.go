@@ -37,7 +37,7 @@ type MentorForRequest struct {
 	WelcomeText string   `json:"welcomeText"`
 	UserImage   struct {
 		UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-		Image     string             `json:"image" bson:"image"`
+		Image     []byte             `json:"image" bson:"image"`
 		Extension string             `json:"extension" bson:"extension"`
 	} `json:"userImage"`
 }

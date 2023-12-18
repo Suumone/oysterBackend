@@ -32,14 +32,31 @@ type Session struct {
 	Status              string             `json:"status" bson:"-"`
 	StatusForMentee     string             `json:"statusForMentee" bson:"-"`
 	StatusForMentor     string             `json:"statusForMentor" bson:"-"`
-	PaymentDetails      string             `json:"paymentDetails,omitempty" bson:"paymentDetails,omitempty"`
-	MeetingLink         string             `json:"meetingLink,omitempty" bson:"meetingLink,omitempty"`
+	PaymentDetails      string             `json:"paymentDetails" bson:"paymentDetails,omitempty"`
+	MeetingLink         string             `json:"meetingLink" bson:"meetingLink,omitempty"`
+}
+
+type SessionResponse struct {
+	SessionId           primitive.ObjectID `json:"sessionId"`
+	Mentor              *UserImageResult   `json:"mentor"`
+	Mentee              *UserImageResult   `json:"mentee"`
+	SessionTimeStart    *time.Time         `json:"sessionTimeStart"`
+	SessionTimeEnd      *time.Time         `json:"sessionTimeEnd"`
+	NewSessionTimeStart *time.Time         `json:"newSessionTimeStart,omitempty" `
+	NewSessionTimeEnd   *time.Time         `json:"newSessionTimeEnd,omitempty"`
+	RequestFromMentee   string             `json:"requestFromMentee"`
+	SessionStatus       Status             `json:"-"`
+	Status              string             `json:"status"`
+	StatusForMentee     string             `json:"statusForMentee"`
+	StatusForMentor     string             `json:"statusForMentor"`
+	PaymentDetails      string             `json:"paymentDetails,omitempty"`
+	MeetingLink         string             `json:"meetingLink,omitempty"`
 }
 
 type GroupedSessions struct {
-	PendingSessions  []Session `json:"pendingSessions"`
-	UpcomingSessions []Session `json:"upcomingSessions"`
-	PastSessions     []Session `json:"pastSessions"`
+	PendingSessions  []SessionResponse `json:"pendingSessions"`
+	UpcomingSessions []SessionResponse `json:"upcomingSessions"`
+	PastSessions     []SessionResponse `json:"pastSessions"`
 }
 
 type AvailableWeekday struct {

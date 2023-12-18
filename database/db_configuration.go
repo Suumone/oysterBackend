@@ -14,21 +14,22 @@ const dbTimeout = 10 * time.Second
 var MongoDBClient *mongo.Client
 var MongoDBOyster *mongo.Database
 
-func ConnectToMongoDB() (*mongo.Client, error) {
+func ConnectToMongoDB() error {
 	uri := os.Getenv("DB_ADDRESS")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	var err error
+	MongoDBClient, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		return nil, err
+		return err
 	}
-	err = mongoClient.Ping(ctx, nil)
+	err = MongoDBClient.Ping(ctx, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
+	MongoDBOyster = MongoDBClient.Database("Oyster")
 	log.Println("Connected to MongoDB!")
-	return mongoClient, nil
+	return nil
 }
 
 func CloseMongoDBConnection() {
