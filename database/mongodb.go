@@ -176,7 +176,7 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	usersColl := GetCollection("users")
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
-	mentorListPipeline := GetMentorListPipeline(idToFind)
+	mentorListPipeline := GetMentorReviewsPipeline(idToFind)
 	cursor, err := usersColl.Aggregate(ctx, mentorListPipeline)
 	if err != nil {
 		return model.UserWithReviews{}
@@ -189,17 +189,37 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 		}
 	}
 
-	for _, review := range user.Reviews {
-		imageResult, err := GetUserPictureByUserId(review.Reviewer.Id.Hex())
-		if err != nil && !errors.Is(err, utils.UserImageNotFound) {
-			log.Printf("Failed to find image for user(%s): %v\n", review.Reviewer.Id.Hex(), err)
+	reviewerIDs := extractReviewerIDs(user.Reviews)
+	userImagesMap := make(map[primitive.ObjectID]model.UserImageResult)
+	if len(reviewerIDs) > 0 {
+		usersWithImages, err := GetUsersWithImages(reviewerIDs)
+		if err != nil {
+			log.Printf("Failed to get user images: %v", err)
+			return model.UserWithReviews{}
 		}
-		review.Reviewer.UserImage.UserId = imageResult.UserId
-		review.Reviewer.UserImage.Image = imageResult.Image
-		review.Reviewer.UserImage.Extension = imageResult.Extension
+		for _, userImage := range usersWithImages {
+			userImagesMap[userImage.UserId] = userImage
+		}
 	}
 
+	updateUserReviews(user, userImagesMap)
 	return user
+}
+
+func extractReviewerIDs(reviews []model.Reviews) []primitive.ObjectID {
+	var reviewerIDs []primitive.ObjectID
+	for _, review := range reviews {
+		reviewerIDs = append(reviewerIDs, review.Reviewer.MenteeId)
+	}
+	return reviewerIDs
+}
+
+func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.ObjectID]model.UserImageResult) {
+	for i, review := range user.Reviews {
+		if userImage, ok := userImagesMap[review.Reviewer.MenteeId]; ok {
+			user.Reviews[i].Reviewer.UserImage = userImage
+		}
+	}
 }
 
 func UpdateUser(user model.User, id string) (model.User, error) {
@@ -322,16 +342,37 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 			return []model.ReviewsForFrontPage{}
 		}
 
-		imageResult, err := GetUserPictureByUserId(review.ReviewerId.Hex())
+		imageResult, err := GetUserPictureByUserId(review.MenteeId.Hex())
 		if err != nil {
-			log.Printf("Failed to find image for user(%s): %v\n", review.UserId.Hex(), err)
+			log.Printf("Failed to find image for user(%s): %v\n", review.MenteeId.Hex(), err)
 		}
-		review.UserImage.UserId = imageResult.UserId
-		review.UserImage.Image = imageResult.Image
-		review.UserImage.Extension = imageResult.Extension
+		review.MenteeImage = imageResult
 
 		result = append(result, review)
 	}
+	var reviewerIDs []primitive.ObjectID
+	for _, review := range result {
+		reviewerIDs = append(reviewerIDs, review.MenteeId)
+	}
+	userImagesMap := make(map[primitive.ObjectID]model.UserImageResult)
+
+	if len(reviewerIDs) > 0 {
+		usersWithImages, err := GetUsersWithImages(reviewerIDs)
+		if err != nil {
+			log.Printf("Failed to find image for users(%s): %v\n", reviewerIDs, err)
+			return result
+		}
+		for _, userImage := range usersWithImages {
+			userImagesMap[userImage.UserId] = userImage
+		}
+	}
+
+	for _, review := range result {
+		if userImage, ok := userImagesMap[review.MenteeId]; ok {
+			review.MenteeImage = userImage
+		}
+	}
+
 	return result
 }
 
