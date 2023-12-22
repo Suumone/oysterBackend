@@ -6,27 +6,29 @@ import (
 )
 
 type UserWithReviews struct {
-	Id      primitive.ObjectID `json:"id" bson:"_id"`
-	Reviews []struct {
-		Reviewer struct {
-			Id        primitive.ObjectID `json:"id"`
-			Name      string             `json:"name"`
-			JobTitle  string             `json:"jobTitle"`
-			UserImage UserImageResult    `json:"userImage,omitempty"`
-		} `json:"reviewer"`
-		Review string    `json:"review"`
-		Rating int       `json:"rating"`
-		Date   time.Time `json:"date"`
-	} `json:"reviews"`
+	MentorId primitive.ObjectID `json:"mentorId" bson:"_id"`
+	Reviews  []Reviews          `json:"reviews"`
+}
+
+type Reviews struct {
+	Reviewer struct {
+		MenteeId  primitive.ObjectID `json:"menteeId"`
+		Name      string             `json:"name"`
+		JobTitle  string             `json:"jobTitle"`
+		UserImage UserImageResult    `json:"userImage,omitempty"`
+	} `json:"reviewer"`
+	Review string    `json:"review"`
+	Rating int       `json:"rating"`
+	Date   time.Time `json:"date"`
 }
 
 type ReviewsForFrontPage struct {
-	UserId     primitive.ObjectID `json:"userId" bson:"userId"`
-	Name       string             `json:"name"`
-	JobTitle   string             `json:"jobTitle,omitempty"`
-	UserImage  UserImageResult    `json:"userImage,omitempty"`
-	Review     string             `json:"review"`
-	Rating     int                `json:"rating,omitempty"`
-	Date       time.Time          `json:"date,omitempty"`
-	ReviewerId primitive.ObjectID `json:"reviewerId" bson:"reviewerId"`
+	MentorId    primitive.ObjectID `json:"mentorId" bson:"mentorId"`
+	MenteeName  string             `json:"menteeName"`
+	JobTitle    string             `json:"jobTitle,omitempty"`
+	MenteeImage UserImageResult    `json:"menteeImage,omitempty"`
+	Review      string             `json:"review"`
+	Rating      int                `json:"rating,omitempty"`
+	Date        time.Time          `json:"date,omitempty"`
+	MenteeId    primitive.ObjectID `json:"menteeId" bson:"menteeId"`
 }

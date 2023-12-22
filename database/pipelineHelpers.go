@@ -6,7 +6,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
+func GetMentorReviewsPipeline(idToFind primitive.ObjectID) bson.A {
 	pipeline := bson.A{
 		bson.D{{"$match", bson.D{{"_id", idToFind}}}},
 		bson.D{
@@ -14,7 +14,7 @@ func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
 				bson.D{
 					{"from", "reviews"},
 					{"localField", "_id"},
-					{"foreignField", "user"},
+					{"foreignField", "mentorId"},
 					{"as", "reviews"},
 				},
 			},
@@ -24,7 +24,7 @@ func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
 			{"$lookup",
 				bson.D{
 					{"from", "users"},
-					{"localField", "reviews.reviewer"},
+					{"localField", "reviews.menteeId"},
 					{"foreignField", "_id"},
 					{"as", "reviewerInfo"},
 				},
@@ -42,10 +42,10 @@ func GetMentorListPipeline(idToFind primitive.ObjectID) bson.A {
 							{"date", "$reviews.date"},
 							{"reviewer",
 								bson.D{
-									{"id", "$reviewerInfo._id"},
+									{"menteeId", "$reviewerInfo._id"},
 									{"name", "$reviewerInfo.name"},
 									{"jobTitle", "$reviewerInfo.jobTitle"},
-									{"profileImage", "$reviewerInfo.profileImage"},
+									{"profileImage", "$reviewerInfo.profileImageId"},
 								},
 							},
 						},
@@ -72,19 +72,19 @@ func GetFrontPageReviewsPipeline() mongo.Pipeline {
 		}}},
 		{{"$lookup", bson.D{
 			{"from", "users"},
-			{"localField", "reviewer"},
+			{"localField", "menteeId"},
 			{"foreignField", "_id"},
 			{"as", "reviewerInfo"},
 		}}},
 		{{"$unwind", "$reviewerInfo"}},
 		{{"$project", bson.D{
-			{"userId", "$user"},
+			{"mentorId", "$mentorId"},
 			{"review", 1},
 			{"rating", 1},
 			{"date", 1},
-			{"name", "$reviewerInfo.name"},
+			{"menteeName", "$reviewerInfo.name"},
 			{"jobTitle", "$reviewerInfo.jobTitle"},
-			{"reviewerId", "$reviewerInfo._id"},
+			{"menteeId", "$reviewerInfo._id"},
 		}}},
 	}
 	return pipeline
@@ -103,7 +103,6 @@ func GetImageForUserPipeline(idToFind primitive.ObjectID) bson.A {
 				},
 			},
 		},
-		bson.D{{"$unwind", bson.D{{"path", "$profileImage"}}}},
 		bson.D{
 			{"$lookup",
 				bson.D{
@@ -119,8 +118,9 @@ func GetImageForUserPipeline(idToFind primitive.ObjectID) bson.A {
 				bson.D{
 					{"_id", 0},
 					{"userId", "$_id"},
-					{"image", "$profileImageData.data"},
-					{"extension", "$profileImage.metadata.extension"},
+					{"name", "$name"},
+					{"image", bson.D{{"$first", "$profileImageData.data"}}},
+					{"extension", bson.D{{"$first", "$profileImage.metadata.extension"}}},
 				},
 			},
 		},
