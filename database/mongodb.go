@@ -112,6 +112,10 @@ func getFilterForTopMentorList() bson.M {
 }
 
 func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*model.User, error) {
+	if offset == 0 && limit == 0 {
+		return nil, nil
+	}
+
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -130,10 +134,10 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*mod
 		log.Printf("Failed to find documents: %v\n", err)
 		return nil, err
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(ctx)
 
 	var users []*model.User
-	for cursor.Next(context.Background()) {
+	for cursor.Next(ctx) {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
@@ -197,7 +201,7 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	}
 	defer cursor.Close(ctx)
 	var user model.UserWithReviews
-	for cursor.Next(context.Background()) {
+	for cursor.Next(ctx) {
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
 		}
@@ -379,9 +383,9 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 		}
 	}
 
-	for _, review := range result {
+	for i, review := range result {
 		if userImage, ok := userImagesMap[review.MenteeId]; ok {
-			review.MenteeImage = userImage
+			result[i].MenteeImage = userImage
 		}
 	}
 
@@ -496,15 +500,18 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 		MongoDBOyster,
 	)
 	if err != nil {
+		log.Printf("Failed create bucket for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 	uploadStream, err := bucket.OpenUploadStream(userId+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
 	if err != nil {
+		log.Printf("Failed to open image stream for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 	defer uploadStream.Close()
 	_, err = uploadStream.Write(fileBytes)
 	if err != nil {
+		log.Printf("Failed to upload image for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 
@@ -519,7 +526,11 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	_, err = userCollection.UpdateOne(ctx, filter, update)
-	return err
+	if err != nil {
+		log.Printf("Failed to upadet profileImageId for user (id: %s) error:%s\n", userId, err)
+		return err
+	}
+	return nil
 }
 
 func GetUserPictureByUserId(userId string) (*model.UserImage, error) {
@@ -535,7 +546,7 @@ func GetUserPictureByUserId(userId string) (*model.UserImage, error) {
 	}
 	defer cursor.Close(ctx)
 	var userImage model.UserImage
-	for cursor.Next(context.Background()) {
+	for cursor.Next(ctx) {
 		if err := cursor.Decode(&userImage); err != nil {
 			log.Printf("Failed to decode image search result: %v", err)
 			return nil, err
@@ -547,12 +558,17 @@ func GetUserPictureByUserId(userId string) (*model.UserImage, error) {
 	return &userImage, nil
 }
 
-func SaveBestMentorsForUser(userId string, mentorsIds []string) {
+func SaveBestMentorsForUser(userId string, mentors []model.MentorForRequest) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
+
+	var mentorsIds []string
+	for _, mentor := range mentors {
+		mentorsIds = append(mentorsIds, mentor.MentorId)
+	}
 	mentorsObjectIds, err := convertStringsToObjectIDs(mentorsIds)
 	if err != nil {
 		return

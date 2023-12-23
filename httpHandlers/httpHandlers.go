@@ -32,15 +32,23 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	var usersIdsObj []primitive.ObjectID
+	for _, user := range users {
+		usersIdsObj = append(usersIdsObj, user.Id)
+	}
+	usersWithImages, err := database.GetUsersWithImages(usersIdsObj)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for mentors")
+		return
+	}
+	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
+	for _, userImage := range usersWithImages {
+		userImagesMap[userImage.UserId] = userImage
+	}
 	for i, user := range users {
-		if user.ProfileImageId.Hex() != "" {
-			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
-			if errors.Is(err, utils.UserImageNotFound) {
-				continue
-			} else if err != nil {
-				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
-				return
-			}
+		if userImage, ok := userImagesMap[user.Id]; ok {
+			users[i].UserImage = userImage
 		}
 	}
 
@@ -206,19 +214,20 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userIds []primitive.ObjectID
+	var usersIdsObj []primitive.ObjectID
 	for _, user := range users {
-		userIds = append(userIds, user.Id)
+		usersIdsObj = append(usersIdsObj, user.Id)
 	}
-	usersWithImages, err := database.GetUsersWithImages(userIds)
+	usersWithImages, err := database.GetUsersWithImages(usersIdsObj)
 	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentor images from database")
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting images from database for users")
 		return
 	}
 	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
 	for _, userImage := range usersWithImages {
 		userImagesMap[userImage.UserId] = userImage
 	}
+
 	for i, user := range users {
 		if userImage, ok := userImagesMap[user.Id]; ok {
 			users[i].UserImage = userImage
