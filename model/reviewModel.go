@@ -25,7 +25,7 @@ type Reviews struct {
 		MenteeId  primitive.ObjectID `json:"menteeId"`
 		Name      string             `json:"name"`
 		JobTitle  string             `json:"jobTitle"`
-		UserImage UserImageResult    `json:"userImage,omitempty"`
+		UserImage *UserImage         `json:"userImage,omitempty"`
 	} `json:"reviewer"`
 	Review string    `json:"review"`
 	Rating int       `json:"rating"`
@@ -36,7 +36,7 @@ type ReviewsForFrontPage struct {
 	MentorId    primitive.ObjectID `json:"mentorId" bson:"mentorId"`
 	MenteeName  string             `json:"menteeName"`
 	JobTitle    string             `json:"jobTitle,omitempty"`
-	MenteeImage UserImageResult    `json:"menteeImage,omitempty"`
+	MenteeImage *UserImage         `json:"menteeImage,omitempty"`
 	Review      string             `json:"review"`
 	Rating      int                `json:"rating,omitempty"`
 	Date        time.Time          `json:"date,omitempty"`

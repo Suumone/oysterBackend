@@ -156,9 +156,7 @@ func getMentorsFilteredWithChatgpt(mentorsForRequest []model.MentorForRequest, m
 			if mentor.MentorId == id {
 				imageResult, err := database.GetUserPictureByUserId(id)
 				if err == nil {
-					mentor.UserImage.UserId = imageResult.UserId
-					mentor.UserImage.Image = imageResult.Image
-					mentor.UserImage.Extension = imageResult.Extension
+					mentor.UserImage = imageResult
 				}
 
 				filteredMentors = append(filteredMentors, mentor)

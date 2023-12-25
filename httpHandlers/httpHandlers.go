@@ -33,14 +33,13 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, user := range users {
 		if user.ProfileImageId.Hex() != "" {
-			userImage, err := database.GetUserPictureByUserId(user.Id.Hex())
+			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
 			if errors.Is(err, utils.UserImageNotFound) {
 				continue
 			} else if err != nil {
 				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
 				return
 			}
-			users[i].UserImage = &userImage
 		}
 	}
 
@@ -76,7 +75,7 @@ func GetMentor(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
 
-	mentor := database.GetUserByID(id)
+	mentor := database.GetUserWithImageByID(id)
 	if utils.IsEmptyStruct(mentor) {
 		WriteMessageResponse(w, http.StatusNotFound, "Mentor not found")
 		return
@@ -112,7 +111,7 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := database.GetUserByID(userId)
+	user := database.GetUserWithImageByID(userId)
 	if utils.IsEmptyStruct(user) {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
@@ -121,7 +120,7 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUserByID(userId string) (model.User, error) {
-	user := database.GetUserByID(userId)
+	user := database.GetUserWithImageByID(userId)
 	if utils.IsEmptyStruct(user) {
 		return model.User{}, errors.New("user not found")
 	}
@@ -205,14 +204,13 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 
 	for i, user := range users {
 		if user.ProfileImageId.Hex() != "" {
-			userImage, err := database.GetUserPictureByUserId(user.Id.Hex())
+			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
 			if errors.Is(err, utils.UserImageNotFound) {
 				continue
 			} else if err != nil {
 				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
 				return
 			}
-			users[i].UserImage = &userImage
 		}
 	}
 	WriteJSONResponse(w, http.StatusOK, users)

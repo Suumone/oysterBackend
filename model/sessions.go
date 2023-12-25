@@ -40,8 +40,8 @@ type Session struct {
 
 type SessionResponse struct {
 	SessionId           primitive.ObjectID `json:"sessionId"`
-	Mentor              *UserImageResult   `json:"mentor"`
-	Mentee              *UserImageResult   `json:"mentee"`
+	Mentor              *UserImage         `json:"mentor"`
+	Mentee              *UserImage         `json:"mentee"`
 	SessionTimeStart    *time.Time         `json:"sessionTimeStart"`
 	SessionTimeEnd      *time.Time         `json:"sessionTimeEnd"`
 	NewSessionTimeStart *time.Time         `json:"newSessionTimeStart,omitempty" `
@@ -58,9 +58,9 @@ type SessionResponse struct {
 }
 
 type GroupedSessions struct {
-	PendingSessions  []SessionResponse `json:"pendingSessions"`
-	UpcomingSessions []SessionResponse `json:"upcomingSessions"`
-	PastSessions     []SessionResponse `json:"pastSessions"`
+	PendingSessions  []*SessionResponse `json:"pendingSessions"`
+	UpcomingSessions []*SessionResponse `json:"upcomingSessions"`
+	PastSessions     []*SessionResponse `json:"pastSessions"`
 }
 
 type AvailableWeekday struct {
