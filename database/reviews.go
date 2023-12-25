@@ -22,7 +22,7 @@ func CreateReviewAndUpdateSession(sessionReview *model.SessionReview) (*model.Se
 		Date:     utils.TimePtr(time.Now()),
 	}
 	err = CreateReview(review)
-	return &session, err
+	return session, err
 }
 
 func CreateReview(review *model.Review) error {

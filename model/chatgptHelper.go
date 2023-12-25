@@ -1,7 +1,5 @@
 package model
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
-
 type Payload struct {
 	Prompt    string `json:"prompt"`
 	MaxTokens int    `json:"max_tokens"`
@@ -32,12 +30,8 @@ type MentorForRequest struct {
 		Description string `json:"description"`
 		Topic       string `json:"topic"`
 	} `json:"mentorsTopics"`
-	Name        string   `json:"name"`
-	Skill       []string `json:"skill"`
-	WelcomeText string   `json:"welcomeText"`
-	UserImage   struct {
-		UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-		Image     []byte             `json:"image" bson:"image"`
-		Extension string             `json:"extension" bson:"extension"`
-	} `json:"userImage"`
+	Name        string     `json:"name"`
+	Skill       []string   `json:"skill"`
+	WelcomeText string     `json:"welcomeText"`
+	UserImage   *UserImage `json:"userImage"`
 }

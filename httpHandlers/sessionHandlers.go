@@ -45,7 +45,7 @@ func GetUserAvailableWeekdays(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, result)
 }
 
-func calculateAvailableWeekdays(availabilities []model.Availability, startDate, endDate time.Time) []model.AvailableWeekday {
+func calculateAvailableWeekdays(availabilities []*model.Availability, startDate, endDate time.Time) []model.AvailableWeekday {
 	var result []model.AvailableWeekday
 
 	uniqueWeekdays := getUniqueWeekdays(availabilities)
@@ -61,7 +61,7 @@ func calculateAvailableWeekdays(availabilities []model.Availability, startDate, 
 	return result
 }
 
-func getUniqueWeekdays(availabilities []model.Availability) []time.Weekday {
+func getUniqueWeekdays(availabilities []*model.Availability) []time.Weekday {
 	uniqueWeekdays := make(map[string]struct{})
 	for _, availability := range availabilities {
 		uniqueWeekdays[availability.Weekday] = struct{}{}
@@ -81,13 +81,12 @@ func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing date")
 		return
 	}
-
-	user, err := getUserByID(userId)
+	user, err := database.GetUserByID(userId)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
-	bookedSessions, err := database.GetUserSessions(user.Id, true)
+	bookedSessions, err := database.GetUserUpcomingSessions(user.Id, true)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error user sessions info from database")
 		return
@@ -113,7 +112,7 @@ func parseDateParameter(dateParam string) (time.Time, error) {
 	return date, nil
 }
 
-func calculateAvailability(availabilities []model.Availability, bookedSessions []model.SessionResponse, startDate, endDate time.Time) []model.TimeSlot {
+func calculateAvailability(availabilities []*model.Availability, bookedSessions []*model.SessionResponse, startDate, endDate time.Time) []model.TimeSlot {
 	var result []model.TimeSlot
 
 	currentDate := startDate
@@ -130,7 +129,7 @@ func calculateAvailability(availabilities []model.Availability, bookedSessions [
 	return result
 }
 
-func getSlots(availability model.Availability, currentDate time.Time) []model.TimeSlot {
+func getSlots(availability *model.Availability, currentDate time.Time) []model.TimeSlot {
 	var result []model.TimeSlot
 
 	availabilityStart, availabilityEnd := getAvailabilityTimeRange(availability, currentDate)
@@ -143,7 +142,7 @@ func getSlots(availability model.Availability, currentDate time.Time) []model.Ti
 	return result
 }
 
-func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []model.SessionResponse) []model.TimeSlot {
+func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []*model.SessionResponse) []model.TimeSlot {
 	var availableSlots []model.TimeSlot
 
 	for _, slot := range slots {
@@ -163,7 +162,7 @@ func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []model.SessionRe
 	return availableSlots
 }
 
-func getAvailabilityTimeRange(availability model.Availability, currentDate time.Time) (time.Time, time.Time) {
+func getAvailabilityTimeRange(availability *model.Availability, currentDate time.Time) (time.Time, time.Time) {
 	startTime := parseTime(availability.TimeFrom, currentDate)
 	endTime := parseTime(availability.TimeTo, currentDate)
 	return startTime, endTime
@@ -205,7 +204,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func setSessionDetails(session *model.Session) {
-	mentor := database.GetUserByID(session.MentorId.Hex())
+	mentor := database.GetUserWithImageByID(session.MentorId.Hex())
 	session.MeetingLink = mentor.MeetingLink
 	if mentor.Prices != nil {
 		session.PaymentDetails = mentor.Prices[0].Price
@@ -247,7 +246,7 @@ func GetUserSessions(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, sessionsResponse)
 }
 
-func groupSessionsByStatus(sessions []model.SessionResponse) model.GroupedSessions {
+func groupSessionsByStatus(sessions []*model.SessionResponse) model.GroupedSessions {
 	groupedSessions := model.GroupedSessions{}
 	for _, session := range sessions {
 		switch {
@@ -256,7 +255,7 @@ func groupSessionsByStatus(sessions []model.SessionResponse) model.GroupedSessio
 		case session.SessionStatus == model.Confirmed:
 			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, session)
 		case session.SessionStatus > model.Confirmed:
-			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, session)
+			groupedSessions.PastSessions = append(groupedSessions.PastSessions, session)
 		}
 	}
 	return groupedSessions
@@ -275,7 +274,7 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
 		return
 	}
-	user := database.GetUserByID(userId)
+	user := database.GetUserWithImageByID(userId)
 	sessionTimeEnd := (*session.NewSessionTimeStart).Add(60 * time.Minute)
 	session.NewSessionTimeEnd = &sessionTimeEnd
 	setRescheduleStatus(&session, user.AsMentor)
