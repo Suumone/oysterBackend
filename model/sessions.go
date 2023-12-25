@@ -34,6 +34,8 @@ type Session struct {
 	StatusForMentor     string             `json:"statusForMentor" bson:"-"`
 	PaymentDetails      string             `json:"paymentDetails" bson:"paymentDetails,omitempty"`
 	MeetingLink         string             `json:"meetingLink" bson:"meetingLink,omitempty"`
+	MenteeReview        string             `json:"menteeReview" bson:"menteeReview,omitempty"`
+	MenteeRating        int                `json:"menteeRating" bson:"menteeRating,omitempty"`
 }
 
 type SessionResponse struct {
@@ -51,6 +53,8 @@ type SessionResponse struct {
 	StatusForMentor     string             `json:"statusForMentor"`
 	PaymentDetails      string             `json:"paymentDetails,omitempty"`
 	MeetingLink         string             `json:"meetingLink,omitempty"`
+	MenteeReview        string             `json:"menteeReview,omitempty"`
+	MenteeRating        int                `json:"menteeRating,omitempty"`
 }
 
 type GroupedSessions struct {
@@ -67,6 +71,14 @@ type AvailableWeekday struct {
 type TimeSlot struct {
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
+}
+
+type SessionReview struct {
+	SessionId    primitive.ObjectID `json:"sessionId"`
+	PublicReview string             `json:"publicReview"`
+	PublicRating int                `json:"publicRating"`
+	Review       string             `json:"review"`
+	Rating       int                `json:"rating"`
 }
 
 func (s Status) GetStatusForMentee() string {

@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+type Review struct {
+	ReviewId     primitive.ObjectID `json:"reviewId" bson:"reviewId"`
+	MenteeId     primitive.ObjectID `json:"menteeId" bson:"menteeId"`
+	MentorId     primitive.ObjectID `json:"mentorId" bson:"mentorId"`
+	Review       string             `json:"review" bson:"review"`
+	Rating       int                `json:"rating" bson:"rating"`
+	Date         *time.Time         `json:"date" bson:"date"`
+	ForFrontPage bool               `json:"forFrontPage" bson:"forFrontPage"`
+}
+
 type UserWithReviews struct {
 	MentorId primitive.ObjectID `json:"mentorId" bson:"_id"`
 	Reviews  []Reviews          `json:"reviews"`

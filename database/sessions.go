@@ -15,7 +15,7 @@ import (
 func CreateSession(session model.Session) (model.SessionResponse, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("sessions")
+	collection := GetCollection(SessionCollectionName)
 	defer cancel()
 	doc, err := collection.InsertOne(ctx, session)
 	if err != nil {
@@ -34,7 +34,7 @@ func CreateSession(session model.Session) (model.SessionResponse, error) {
 func GetSession(sessionId string) (model.SessionResponse, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("sessions")
+	collection := GetCollection(SessionCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(sessionId)
 	filter := bson.M{"_id": idToFind}
 	var session model.Session
@@ -84,13 +84,15 @@ func createSessionResponse(mentorMenteeInfo []model.UserImageResult, session mod
 		StatusForMentor:     session.StatusForMentor,
 		PaymentDetails:      session.PaymentDetails,
 		MeetingLink:         session.MeetingLink,
+		MenteeReview:        session.MenteeReview,
+		MenteeRating:        session.MenteeRating,
 	}, nil
 }
 
 func GetUserSessions(userId primitive.ObjectID, asMentor bool) ([]model.SessionResponse, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("sessions")
+	collection := GetCollection(SessionCollectionName)
 	filter := buildSessionFilter(userId, asMentor)
 	cursor, err := collection.Find(ctx, filter)
 	if errors.Is(err, mongo.ErrNoDocuments) {
@@ -133,7 +135,6 @@ func decodeSessions(cursor *mongo.Cursor) ([]model.SessionResponse, error) {
 }
 
 func RescheduleSession(session model.Session) (model.SessionResponse, error) {
-	collection := GetCollection("sessions")
 	filter := bson.M{"_id": session.SessionId}
 	updateOp := bson.M{
 		"$set": bson.M{
@@ -142,11 +143,10 @@ func RescheduleSession(session model.Session) (model.SessionResponse, error) {
 			"sessionStatus":       session.SessionStatus,
 		},
 	}
-	return updateSessionAndPrepareResponse(collection, filter, updateOp)
+	return updateSessionAndPrepareResponse(filter, updateOp)
 }
 
 func ConfirmSession(sessionId string) (model.SessionResponse, error) {
-	collection := GetCollection("sessions")
 	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
 	filter := bson.M{"_id": sessionIdObj}
 
@@ -167,11 +167,10 @@ func ConfirmSession(sessionId string) (model.SessionResponse, error) {
 		},
 	}
 
-	return updateSessionAndPrepareResponse(collection, filter, updateOp)
+	return updateSessionAndPrepareResponse(filter, updateOp)
 }
 
 func CancelSession(sessionId, userId string) (model.SessionResponse, error) {
-	collection := GetCollection("sessions")
 	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
 	filter := bson.M{"_id": sessionIdObj}
 
@@ -183,11 +182,11 @@ func CancelSession(sessionId, userId string) (model.SessionResponse, error) {
 		updateOp = bson.M{"$set": bson.M{"sessionStatus": model.CanceledByMentee}}
 	}
 
-	return updateSessionAndPrepareResponse(collection, filter, updateOp)
+	return updateSessionAndPrepareResponse(filter, updateOp)
 }
 
-func updateSessionAndPrepareResponse(collection *mongo.Collection, filter bson.M, updateOp bson.M) (model.SessionResponse, error) {
-	updatedSession, err := updateSession(collection, filter, updateOp)
+func updateSessionAndPrepareResponse(filter bson.M, updateOp bson.M) (model.SessionResponse, error) {
+	updatedSession, err := updateSession(filter, updateOp)
 	if err != nil {
 		return model.SessionResponse{}, err
 	}
@@ -198,10 +197,10 @@ func updateSessionAndPrepareResponse(collection *mongo.Collection, filter bson.M
 	return createSessionResponse(mentorMenteeInfo, updatedSession)
 }
 
-func updateSession(collection *mongo.Collection, filter bson.M, updateOp bson.M) (model.Session, error) {
+func updateSession(filter bson.M, updateOp bson.M) (model.Session, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-
+	collection := GetCollection(SessionCollectionName)
 	var updatedSession model.Session
 	err := collection.FindOneAndUpdate(
 		ctx,
@@ -216,4 +215,15 @@ func updateSession(collection *mongo.Collection, filter bson.M, updateOp bson.M)
 	}
 
 	return updatedSession, nil
+}
+
+func UpdateSessionReviews(review *model.SessionReview) (model.SessionResponse, error) {
+	filter := bson.M{"_id": review.SessionId}
+	updateOp := bson.M{
+		"$set": bson.M{
+			"menteeReview": review.Review,
+			"menteeRating": review.Rating,
+		},
+	}
+	return updateSessionAndPrepareResponse(filter, updateOp)
 }
