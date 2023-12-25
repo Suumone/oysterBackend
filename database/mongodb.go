@@ -18,7 +18,7 @@ import (
 )
 
 func CreateMentor(user model.User) (primitive.ObjectID, error) {
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	doc, err := collection.InsertOne(ctx, user)
@@ -112,7 +112,7 @@ func getFilterForTopMentorList() bson.M {
 }
 
 func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]model.User, error) {
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	opts := options.Find()
@@ -152,7 +152,7 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]mode
 func GetUserByID(id string) model.User {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": idToFind}
 	var user model.User
@@ -173,7 +173,7 @@ func GetUserByID(id string) model.User {
 func GetMentorReviewsByID(id string) model.UserWithReviews {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	usersColl := GetCollection("users")
+	usersColl := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 
 	mentorListPipeline := GetMentorReviewsPipeline(idToFind)
@@ -225,7 +225,7 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 func UpdateUser(user model.User, id string) (model.User, error) {
 	user.IsNewUser = false
 	idToFind, _ := primitive.ObjectIDFromHex(id)
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": idToFind}
 	updateOp := bson.M{"$set": user}
 	ctx, cancel := withTimeout(context.Background())
@@ -312,7 +312,7 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 	}
 
 	if fieldType == "dropdown" && len(valuesFromDb) == 0 {
-		usersColl := GetCollection("users")
+		usersColl := GetCollection(UserCollectionName)
 		values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
 		if err != nil {
 			return nil, err
@@ -377,7 +377,7 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 }
 
 func GetUserByEmail(email string) (model.User, error) {
-	usersCollection := GetCollection("users")
+	usersCollection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	filter := bson.M{"email": email}
@@ -387,7 +387,7 @@ func GetUserByEmail(email string) (model.User, error) {
 }
 
 func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
-	userCollection := GetCollection("users")
+	userCollection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	var user model.User
@@ -415,7 +415,7 @@ func checkPassword(hashedPassword string, plainPassword string) bool {
 
 func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
-	userCollection := GetCollection("users")
+	userCollection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
@@ -434,7 +434,7 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 func GetCurrentState(userId string) model.UserState {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	var user model.UserState
@@ -453,7 +453,7 @@ func GetCurrentState(userId string) model.UserState {
 func UpdateUserState(userId string) error {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	var user model.User
@@ -496,7 +496,7 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 		return err
 	}
 
-	userCollection := GetCollection("users")
+	userCollection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	update := bson.M{
@@ -513,7 +513,7 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	usersColl := GetCollection("users")
+	usersColl := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	imageForUserPipeline := GetImageForUserPipeline(idToFind)
 	cursor, err := usersColl.Aggregate(ctx, imageForUserPipeline)
@@ -543,7 +543,7 @@ func GetUserPictureByUserId(userId string) (model.UserImageResult, error) {
 func SaveBestMentorsForUser(userId string, mentorsIds []string) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	usersColl := GetCollection("users")
+	usersColl := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	mentorsObjectIds, err := convertStringsToObjectIDs(mentorsIds)
@@ -562,7 +562,7 @@ func SaveBestMentorsForUser(userId string, mentorsIds []string) {
 func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	usersColl := GetCollection("users")
+	usersColl := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(userId)
 	filter := bson.M{"_id": idToFind}
 	var user model.UserBestMentors
@@ -608,7 +608,7 @@ func GetValuesForSelect(params url.Values) ([]model.ValuesToSelect, error) {
 
 func UpdateMentorRequest(request string, id string) {
 	idToFind, _ := primitive.ObjectIDFromHex(id)
-	collection := GetCollection("users")
+	collection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": idToFind}
 	updateOp := bson.M{"$set": bson.M{"userMentorRequest": request}}
 	ctx, cancel := withTimeout(context.Background())
@@ -626,7 +626,7 @@ func GetUsersWithImages(userIds []primitive.ObjectID) ([]model.UserImageResult, 
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	imagesForUsersPipeline := GetImagesForUsersPipeline(userIds)
-	usersColl := GetCollection("users")
+	usersColl := GetCollection(UserCollectionName)
 	cursor, err := usersColl.Aggregate(ctx, imagesForUsersPipeline)
 	if err != nil {
 		log.Printf("Failed to aggregate user with image: %v", err)

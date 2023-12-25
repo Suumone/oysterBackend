@@ -27,7 +27,7 @@ func StartStatusCalculation() {
 func statusCalculation() {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	defer cancel()
-	sessionCollection := database.GetCollection("sessions")
+	sessionCollection := database.GetCollection(database.SessionCollectionName)
 
 	filter := bson.M{
 		"sessionTimeEnd": bson.M{"$lt": time.Now()},

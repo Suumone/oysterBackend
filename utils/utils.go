@@ -68,3 +68,7 @@ func SetStatusText(session *model.Session) {
 	session.StatusForMentor = session.SessionStatus.GetStatusForMentor()
 	session.Status = session.SessionStatus.String()
 }
+
+func TimePtr(t time.Time) *time.Time {
+	return &t
+}

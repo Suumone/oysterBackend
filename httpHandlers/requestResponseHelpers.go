@@ -35,5 +35,5 @@ func writeResponse(w http.ResponseWriter, message string) {
 }
 
 func handleInvalidTokenResponse(w http.ResponseWriter) {
-	WriteMessageResponse(w, http.StatusBadRequest, "Invalid token")
+	WriteMessageResponse(w, http.StatusForbidden, "Invalid token")
 }

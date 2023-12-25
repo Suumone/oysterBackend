@@ -10,6 +10,12 @@ import (
 	"unicode"
 )
 
+const (
+	UserCollectionName    = "users"
+	SessionCollectionName = "sessions"
+	ReviewCollectionName  = "reviews"
+)
+
 // todo get from database
 var fieldTypes = map[string]string{
 	"language":                   "array",
