@@ -18,7 +18,7 @@ func StartStatusCalculation() {
 	j := gocron.NewScheduler(time.UTC)
 	_, err := j.Every(INTERVAL).Minutes().Do(statusCalculation)
 	if err != nil {
-		log.Printf("Error initializing status calculation job: %v\n", err)
+		log.Fatalf("Error initializing status calculation job: %v\n", err)
 		return
 	}
 	j.StartAsync()

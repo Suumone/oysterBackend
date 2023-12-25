@@ -30,7 +30,7 @@ func CreateMentor(user model.User) (primitive.ObjectID, error) {
 	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentors(params url.Values, userId string) ([]model.User, error) {
+func GetMentors(params url.Values, userId string) ([]*model.User, error) {
 	filter, err := getFilterForMentorList(params, userId)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func GetMentors(params url.Values, userId string) ([]model.User, error) {
 	return fetchMentors(filter, offset, limit, nil)
 }
 
-func GetTopMentors(params url.Values) ([]model.User, error) {
+func GetTopMentors(params url.Values) ([]*model.User, error) {
 	filter := getFilterForTopMentorList()
 	offset, limit, err := getOffsetAndLimit(params)
 	if err != nil {
@@ -111,7 +111,7 @@ func getFilterForTopMentorList() bson.M {
 	}
 }
 
-func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]model.User, error) {
+func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*model.User, error) {
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -132,14 +132,14 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]mode
 	}
 	defer cursor.Close(context.Background())
 
-	var users []model.User
+	var users []*model.User
 	for cursor.Next(context.Background()) {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
 			return nil, err
 		} else {
-			users = append(users, user)
+			users = append(users, &user)
 		}
 	}
 	if err := cursor.Err(); err != nil {

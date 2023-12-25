@@ -21,7 +21,7 @@ var (
 	ApiKey = os.Getenv("OPENAI_API_KEY")
 )
 
-func mapUserToMentorForRequest(user model.User) model.MentorForRequest {
+func mapUserToMentorForRequest(user *model.User) model.MentorForRequest {
 	mentor := model.MentorForRequest{
 		MentorId:    user.Id.Hex(),
 		Company:     user.Company,

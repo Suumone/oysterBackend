@@ -231,7 +231,7 @@ func GetUserSessions(w http.ResponseWriter, r *http.Request) {
 		handleInvalidTokenResponse(w)
 		return
 	}
-	user, err := getUserByID(userId)
+	user, err := database.GetUserByID(userId)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return

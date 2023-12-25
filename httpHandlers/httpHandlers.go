@@ -3,6 +3,7 @@ package httpHandlers
 import (
 	"errors"
 	"github.com/golang-jwt/jwt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"log"
 	"net/http"
@@ -200,17 +201,27 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 			WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentors from database")
 			return
 		}
+	} else if len(users) == 0 {
+		WriteJSONResponse(w, http.StatusNotFound, users)
+		return
 	}
 
+	var userIds []primitive.ObjectID
+	for _, user := range users {
+		userIds = append(userIds, user.Id)
+	}
+	usersWithImages, err := database.GetUsersWithImages(userIds)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentor images from database")
+		return
+	}
+	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
+	for _, userImage := range usersWithImages {
+		userImagesMap[userImage.UserId] = userImage
+	}
 	for i, user := range users {
-		if user.ProfileImageId.Hex() != "" {
-			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
-			if errors.Is(err, utils.UserImageNotFound) {
-				continue
-			} else if err != nil {
-				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
-				return
-			}
+		if userImage, ok := userImagesMap[user.Id]; ok {
+			users[i].UserImage = userImage
 		}
 	}
 	WriteJSONResponse(w, http.StatusOK, users)
