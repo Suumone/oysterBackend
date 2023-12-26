@@ -37,7 +37,7 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	for _, user := range users {
 		usersIdsObj = append(usersIdsObj, user.Id)
 	}
-	usersWithImages, err := database.GetUsersWithImages(usersIdsObj)
+	usersWithImages, err := database.GetUserImages(usersIdsObj)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for mentors")
 		return
@@ -84,8 +84,8 @@ func GetMentor(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
 
-	mentor := database.GetUserWithImageByID(id)
-	if utils.IsEmptyStruct(mentor) {
+	mentor, err := database.GetUserWithImageByID(id)
+	if err != nil {
 		WriteMessageResponse(w, http.StatusNotFound, "Mentor not found")
 		return
 	}
@@ -96,15 +96,15 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
-		userWithReviews := database.GetMentorReviewsByID(mentorId)
-		if utils.IsEmptyStruct(userWithReviews) {
+		userWithReviews, err := database.GetMentorReviewsByID(mentorId)
+		if err != nil {
 			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
 			return
 		}
 		WriteJSONResponse(w, http.StatusOK, userWithReviews)
 	} else {
-		reviews := database.GetReviewsForFrontPage()
-		if utils.IsEmptyStruct(reviews) {
+		reviews, err := database.GetReviewsForFrontPage()
+		if err != nil {
 			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
 			return
 		}
@@ -120,18 +120,18 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := database.GetUserWithImageByID(userId)
-	if utils.IsEmptyStruct(user) {
+	user, err := database.GetUserWithImageByID(userId)
+	if err != nil {
 		WriteMessageResponse(w, http.StatusNotFound, "User not found")
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, user)
 }
 
-func getUserByID(userId string) (model.User, error) {
-	user := database.GetUserWithImageByID(userId)
-	if utils.IsEmptyStruct(user) {
-		return model.User{}, errors.New("user not found")
+func getUserByID(userId string) (*model.User, error) {
+	user, err := database.GetUserWithImageByID(userId)
+	if err != nil {
+		return nil, errors.New("user not found")
 	}
 	return user, nil
 }
@@ -157,12 +157,12 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	}
 	//utils.NormalizeSocialLinks(&userForUpdate)
 
-	userAfterUpdate, err := database.UpdateUser(userForUpdate, userId)
+	userAfterUpdate, err := database.UpdateUser(&userForUpdate, userId)
 	if err != nil {
 		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
-	var userForExperienceUpdate model.User
+	var userForExperienceUpdate *model.User
 	for _, entry := range userAfterUpdate.AreaOfExpertise {
 		userForExperienceUpdate.Experience += entry.Experience
 	}
@@ -218,7 +218,7 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	for _, user := range users {
 		usersIdsObj = append(usersIdsObj, user.Id)
 	}
-	usersWithImages, err := database.GetUsersWithImages(usersIdsObj)
+	usersWithImages, err := database.GetUserImages(usersIdsObj)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting images from database for users")
 		return

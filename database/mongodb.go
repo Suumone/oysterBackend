@@ -153,9 +153,21 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*mod
 	return users, nil
 }
 
-func GetUserWithImageByID(id string) model.User {
+func GetUserWithImageByID(id string) (*model.User, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
+
+	userChan := make(chan *model.User)
+	errChan := make(chan error)
+	go func() {
+		userImage, err := GetUserPictureByUserId(id)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		userChan <- &model.User{UserImage: userImage}
+	}()
+
 	collection := GetCollection(UserCollectionName)
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	filter := bson.M{"_id": idToFind}
@@ -163,14 +175,20 @@ func GetUserWithImageByID(id string) model.User {
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
 		handleFindError(err, id, "user")
-		return model.User{}
+		return nil, err
 	}
 
-	user.UserImage, err = GetUserPictureByUserId(id)
-	if err != nil && !errors.Is(err, utils.UserImageNotFound) {
-		log.Printf("Failed to find image for user(%s): %v\n", id, err)
+	select {
+	case userFromChan := <-userChan:
+		user.UserImage = userFromChan.UserImage
+	case errFromChan := <-errChan:
+		if !errors.Is(errFromChan, utils.UserImageNotFound) {
+			log.Printf("GetUserWithImageByID: Failed to find image for user(%s): %v\n", id, errFromChan)
+		} else if errFromChan != nil {
+			return nil, errFromChan
+		}
 	}
-	return user
+	return &user, err
 }
 
 func GetUserByID(id string) (*model.User, error) {
@@ -188,7 +206,7 @@ func GetUserByID(id string) (*model.User, error) {
 	return &user, err
 }
 
-func GetMentorReviewsByID(id string) model.UserWithReviews {
+func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
@@ -197,23 +215,25 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	mentorListPipeline := GetMentorReviewsPipeline(idToFind)
 	cursor, err := usersColl.Aggregate(ctx, mentorListPipeline)
 	if err != nil {
-		return model.UserWithReviews{}
+		log.Printf("GetMentorReviewsByID: Failed to decode document: %v", err)
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 	var user model.UserWithReviews
 	for cursor.Next(ctx) {
 		if err := cursor.Decode(&user); err != nil {
-			log.Printf("Failed to decode document: %v", err)
+			log.Printf("GetMentorReviewsByID: Failed to decode document: %v", err)
+			return nil, err
 		}
 	}
 
 	reviewerIDs := extractReviewerIDs(user.Reviews)
 	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
 	if len(reviewerIDs) > 0 {
-		usersWithImages, err := GetUsersWithImages(reviewerIDs)
+		usersWithImages, err := GetUserImages(reviewerIDs)
 		if err != nil {
-			log.Printf("Failed to get user images: %v", err)
-			return model.UserWithReviews{}
+			log.Printf("GetMentorReviewsByID: Failed to get user images: %v", err)
+			return nil, err
 		}
 		for _, userImage := range usersWithImages {
 			userImagesMap[userImage.UserId] = userImage
@@ -221,7 +241,7 @@ func GetMentorReviewsByID(id string) model.UserWithReviews {
 	}
 
 	updateUserReviews(user, userImagesMap)
-	return user
+	return &user, nil
 }
 
 func extractReviewerIDs(reviews []model.Reviews) []primitive.ObjectID {
@@ -240,7 +260,7 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 	}
 }
 
-func UpdateUser(user model.User, id string) (model.User, error) {
+func UpdateUser(user *model.User, id string) (*model.User, error) {
 	user.IsNewUser = false
 	idToFind, _ := primitive.ObjectIDFromHex(id)
 	collection := GetCollection(UserCollectionName)
@@ -250,9 +270,12 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 	defer cancel()
 	_, err := collection.UpdateOne(ctx, filter, updateOp)
 	if err != nil {
-		return model.User{}, err
+		return nil, err
 	}
-	userAfterUpdate := GetUserWithImageByID(id)
+	userAfterUpdate, err := GetUserWithImageByID(id)
+	if err != nil {
+		return nil, err
+	}
 	log.Printf("User(id: %s) updated successfully!\n", id)
 	return userAfterUpdate, nil
 }
@@ -341,30 +364,26 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 	return fieldData, nil
 }
 
-func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
+func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	reviewColl := GetCollection("reviews")
 	pipeline := GetFrontPageReviewsPipeline()
 	cursor, err := reviewColl.Aggregate(ctx, pipeline)
 	if err != nil {
-		return []model.ReviewsForFrontPage{}
+		log.Printf("GetReviewsForFrontPage: Failed to create reviews cursor: %v", err)
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
-	var result []model.ReviewsForFrontPage
+	var result []*model.ReviewsForFrontPage
 	for cursor.Next(ctx) {
 		var review model.ReviewsForFrontPage
-		err := cursor.Decode(&review)
-		if err != nil {
-			return []model.ReviewsForFrontPage{}
+		if err := cursor.Decode(&review); err != nil {
+			log.Printf("GetReviewsForFrontPage: Failed to decode reviews: %v", err)
+			return nil, err
 		}
-
-		review.MenteeImage, err = GetUserPictureByUserId(review.MenteeId.Hex())
-		if err != nil {
-			log.Printf("Failed to find image for user(%s): %v\n", review.MenteeId.Hex(), err)
-		}
-		result = append(result, review)
+		result = append(result, &review)
 	}
 	var reviewerIDs []primitive.ObjectID
 	for _, review := range result {
@@ -373,10 +392,10 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
 
 	if len(reviewerIDs) > 0 {
-		usersWithImages, err := GetUsersWithImages(reviewerIDs)
+		usersWithImages, err := GetUserImages(reviewerIDs)
 		if err != nil {
-			log.Printf("Failed to find image for users(%s): %v\n", reviewerIDs, err)
-			return result
+			log.Printf("GetReviewsForFrontPage: Failed to find image for users(%s): %v\n", reviewerIDs, err)
+			return nil, err
 		}
 		for _, userImage := range usersWithImages {
 			userImagesMap[userImage.UserId] = userImage
@@ -389,7 +408,7 @@ func GetReviewsForFrontPage() []model.ReviewsForFrontPage {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func GetUserByEmail(email string) (model.User, error) {
@@ -645,7 +664,7 @@ func UpdateMentorRequest(request string, id string) {
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
 }
 
-func GetUsersWithImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
+func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	imagesForUsersPipeline := GetImagesForUsersPipeline(userIds)
