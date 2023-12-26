@@ -194,7 +194,11 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session create request")
 		return
 	}
-	setSessionDetails(&session)
+	err = setSessionDetails(&session)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusNotFound, "Mentor was not found in database: "+err.Error())
+		return
+	}
 	updatedSession, err := database.CreateSession(session)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Database session insert error: "+err.Error())
@@ -203,8 +207,12 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusCreated, updatedSession)
 }
 
-func setSessionDetails(session *model.Session) {
-	mentor := database.GetUserWithImageByID(session.MentorId.Hex())
+func setSessionDetails(session *model.Session) error {
+	mentor, err := database.GetUserByID(session.MentorId.Hex())
+	if err != nil {
+		log.Printf("CancelSession: Failed to find user(%s) err: %v\n", session.MentorId.Hex(), err)
+		return err
+	}
 	session.MeetingLink = mentor.MeetingLink
 	if mentor.Prices != nil {
 		session.PaymentDetails = mentor.Prices[0].Price
@@ -212,6 +220,7 @@ func setSessionDetails(session *model.Session) {
 	session.SessionStatus = model.PendingByMentor
 	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
 	session.SessionTimeEnd = &sessionTimeEnd
+	return nil
 }
 
 func GetSession(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +283,11 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
 		return
 	}
-	user := database.GetUserWithImageByID(userId)
+	user, err := database.GetUserByID(userId)
+	if err != nil {
+		WriteMessageResponse(w, http.StatusNotFound, "Failed to find user(%s)")
+		return
+	}
 	sessionTimeEnd := (*session.NewSessionTimeStart).Add(60 * time.Minute)
 	session.NewSessionTimeEnd = &sessionTimeEnd
 	setRescheduleStatus(&session, user.AsMentor)

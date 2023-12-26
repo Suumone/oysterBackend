@@ -178,7 +178,7 @@ func getMentorsFilteredWithChatgpt(mentorsForRequest []model.MentorForRequest, m
 		idObj, _ := primitive.ObjectIDFromHex(id)
 		mentorsIdsObj = append(mentorsIdsObj, idObj)
 	}
-	usersWithImages, err := database.GetUsersWithImages(mentorsIdsObj)
+	usersWithImages, err := database.GetUserImages(mentorsIdsObj)
 	if err != nil {
 		return nil
 	}
