@@ -182,9 +182,10 @@ func GetUserWithImageByID(id string) (*model.User, error) {
 	case userFromChan := <-userChan:
 		user.UserImage = userFromChan.UserImage
 	case errFromChan := <-errChan:
-		if !errors.Is(errFromChan, utils.UserImageNotFound) {
-			log.Printf("GetUserWithImageByID: Failed to find image for user(%s): %v\n", id, errFromChan)
+		if errors.Is(errFromChan, utils.UserImageNotFound) {
+			log.Printf("GetUserWithImageByID: Failed to find image for user(%s) error: %v\n", id, errFromChan)
 		} else if errFromChan != nil {
+			log.Printf("GetUserWithImageByID: Search image for user(%s) error: %v\n", id, errFromChan)
 			return nil, errFromChan
 		}
 	}
