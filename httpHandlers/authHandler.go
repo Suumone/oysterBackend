@@ -6,8 +6,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/go-chi/render"
 	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -25,7 +27,7 @@ import (
 
 const (
 	oauthGoogleUrlAPI     = "https://www.googleapis.com/oauth2/v2/userinfo?access_token="
-	jwtExpiration         = 7 * 24 * time.Hour
+	expirationTime        = 7 * 24 * time.Hour
 	oauthCookieExpiration = 365 * 24 * time.Hour
 )
 
@@ -84,6 +86,162 @@ func JWTMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+type session struct {
+	SessionId primitive.ObjectID `bson:"_id,omitempty"`
+	UserId    primitive.ObjectID `bson:"userId"`
+	Expiry    int64              `bson:"expiry"`
+}
+
+func (s session) isExpired() bool {
+	return s.Expiry < time.Now().UnixNano()
+}
+
+func saveSession(s session) (string, error) {
+	collection := database.GetCollection(database.AuthSessionCollectionName)
+	result, err := collection.InsertOne(context.Background(), s)
+	if err != nil {
+		log.Printf("Error saving session in db: %v\n", err)
+		return "", err
+	}
+	return result.InsertedID.(primitive.ObjectID).Hex(), err
+}
+
+func getUserSessionFromRequest(r *http.Request) *session {
+	userSession, ok := r.Context().Value("userSession").(*session)
+	if !ok {
+		log.Printf("getUserSessionFromRequest: no session in context")
+		return nil
+	}
+
+	return userSession
+}
+
+func findSession(sessionId string) (*session, bool) {
+	collection := database.GetCollection(database.AuthSessionCollectionName)
+	sessionIdObj, err := primitive.ObjectIDFromHex(sessionId)
+	if err != nil {
+		log.Printf("Failed to convert string identifier to object(%s): %v\n", sessionId, err)
+		return nil, false
+	}
+	filter := bson.M{"_id": sessionIdObj}
+	result := collection.FindOne(context.Background(), filter)
+	err = result.Err()
+	if err != nil {
+		log.Printf("Session was not found(%s): %v\n", sessionId, err)
+		return nil, false
+	}
+	var s session
+	err = result.Decode(&s)
+	if err != nil {
+		log.Printf("Error decoding session(%s): %v\n", sessionId, err)
+		return nil, false
+	}
+	if time.Now().UnixNano() > s.Expiry {
+		log.Printf("Session(%s) expired\n", sessionId)
+		return nil, false
+	}
+	return &s, true
+}
+
+func deleteSession(s *session) error {
+	collection := database.GetCollection(database.AuthSessionCollectionName)
+	filter := bson.M{"_id": s.SessionId}
+	result, err := collection.DeleteOne(context.Background(), filter)
+	if err != nil || result.DeletedCount == 0 {
+		log.Printf("Error deleting session(%s): %v\n", s.SessionId, err)
+		return err
+	}
+	return nil
+}
+
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie("sessionId")
+		if err != nil {
+			if errors.Is(err, http.ErrNoCookie) {
+				WriteMessageResponse(w, http.StatusUnauthorized, "Missed session id")
+				return
+			}
+			WriteMessageResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		sessionId := c.Value
+		userSession, ok := findSession(sessionId)
+		if !ok {
+			WriteMessageResponse(w, http.StatusUnauthorized, "User unauthorized")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "userSession", userSession)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func SignIn(w http.ResponseWriter, r *http.Request) {
+	var credentials model.Auth
+
+	if err := render.DecodeJSON(r.Body, &credentials); err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+
+	if _, err := mail.ParseAddress(credentials.Email); err != nil {
+		WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
+		return
+	}
+
+	user, err := database.GetUserByEmail(credentials.Email)
+	if err != nil || user == nil {
+		WriteMessageResponse(w, http.StatusUnauthorized, "Invalid username or password")
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(credentials.Password)); err != nil {
+		WriteMessageResponse(w, http.StatusUnauthorized, "Wrong password")
+		return
+	}
+
+	expiresAt := time.Now().Add(expirationTime)
+	sessionId, err := saveSession(session{
+		UserId: user.Id,
+		Expiry: expiresAt.UnixNano(),
+	})
+	if err != nil {
+		WriteMessageResponse(w, http.StatusInternalServerError, "Database saving session error")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "sessionId",
+		Value:    sessionId,
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	WriteMessageResponse(w, http.StatusOK, "Sign in successful")
+}
+
+func SignOut(w http.ResponseWriter, r *http.Request) {
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		WriteJSONResponse(w, http.StatusBadRequest, "No user session info was found")
+		return
+	}
+	err := deleteSession(userSession)
+	if err != nil {
+		WriteJSONResponse(w, http.StatusInternalServerError, "Error deleting session")
+		return
+	}
+	cookie := http.Cookie{
+		Name:    "sessionId",
+		Value:   "",
+		Expires: time.Now().Add(-expirationTime),
+	}
+	http.SetCookie(w, &cookie)
+	WriteMessageResponse(w, http.StatusOK, "Sign out successful")
+}
+
 func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	var authData model.Auth
 	err := ParseJSONRequest(r, &authData)
@@ -117,50 +275,32 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := generateToken(user)
+	expiresAt := time.Now().Add(expirationTime)
+	sessionId, err := saveSession(session{
+		UserId: user.Id,
+		Expiry: expiresAt.UnixNano(),
+	})
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
+		WriteMessageResponse(w, http.StatusInternalServerError, "Database saving session error")
 		return
 	}
-	WriteJSONResponse(w, http.StatusCreated, tokenString)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "sessionId",
+		Value:    sessionId,
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	WriteMessageResponse(w, http.StatusOK, "Sign up successful")
 }
 
-func HandleSignIn(w http.ResponseWriter, r *http.Request) {
-	var signInData model.Auth
-	err := ParseJSONRequest(r, &signInData)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
-		return
-	}
-	if signInData.Password == "" {
-		WriteMessageResponse(w, http.StatusNotFound, "Empty password")
-		return
-	}
-
-	foundUser, err := database.GetUserByEmail(signInData.Email)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
-		return
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(signInData.Password)); err != nil {
-		WriteJSONResponse(w, http.StatusUnauthorized, "Wrong password")
-		return
-	}
-
-	tokenString, err := generateToken(foundUser)
-	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, tokenString)
-}
-
-func generateToken(user model.User) (string, error) {
+func generateToken(user *model.User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"id":    user.Id,
 		"email": user.Email,
-		"exp":   time.Now().Add(jwtExpiration).Unix(),
+		"exp":   time.Now().Add(expirationTime).Unix(),
 	})
 
 	tokenString, _ := token.SignedString(jwtKey)
@@ -221,10 +361,10 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo, err = database.GetUserByEmail(userInfo.Email)
+	user, err := database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		userInfo.IsNewUser = true
-		userInfo.Id, err = database.CreateMentor(userInfo)
+		user.IsNewUser = true
+		user.Id, err = database.CreateMentor(userInfo)
 		if err != nil {
 			WriteJSONResponse(w, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return
@@ -234,40 +374,12 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenString, err := generateToken(userInfo)
+	tokenString, err := generateToken(&userInfo)
 	if err != nil {
 		WriteJSONResponse(w, http.StatusInternalServerError, "Failed to generate JWT: "+err.Error())
 		return
 	}
 	WriteJSONResponse(w, http.StatusOK, tokenString)
-}
-
-func HandleLogOut(w http.ResponseWriter, r *http.Request) {
-	tokenStr := strings.Split(r.Header.Get("Authorization"), "Bearer ")[1]
-
-	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-	if err != nil {
-		WriteJSONResponse(w, http.StatusBadRequest, "Invalid token")
-		return
-	}
-
-	expiry, _ := claims["exp"].(float64)
-	expiresAt := time.Unix(int64(expiry), 0)
-
-	collection := database.GetCollection("blacklistedTokens")
-	_, err = collection.InsertOne(context.TODO(), model.BlacklistedToken{
-		Token:     tokenStr,
-		ExpiresAt: expiresAt,
-	})
-	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Database error: "+err.Error())
-		return
-	}
-
-	WriteJSONResponse(w, http.StatusOK, "Successfully logged out")
 }
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 	"os"
 	"oysterProject/httpHandlers"
@@ -9,15 +10,17 @@ import (
 )
 
 func ConfigureRoutes(r *chi.Mux) {
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/", httpHandlers.HandleEmailPassAuth)
 		r.Get("/google", httpHandlers.HandleGoogleAuth)
 		r.Get("/google/callback", httpHandlers.HandleAuthCallback)
 	})
-	r.Post("/signIn", httpHandlers.HandleSignIn)
-	r.With(httpHandlers.JWTMiddleware).Post("/signOut", httpHandlers.HandleLogOut)
+	r.Post("/signIn", httpHandlers.SignIn)
+	r.With(httpHandlers.AuthMiddleware).Post("/signOut", httpHandlers.SignOut)
 
-	r.With(httpHandlers.JWTMiddleware).Get("/getMentorList", httpHandlers.GetMentorsList)
+	r.With(httpHandlers.AuthMiddleware).Get("/getMentorList", httpHandlers.GetMentorsList)
 	r.With(httpHandlers.JWTMiddleware).Post("/calculateBestMentors", httpHandlers.CalculateBestMentors)
 
 	r.Get("/getMentorListFilters", httpHandlers.GetMentorListFilters)

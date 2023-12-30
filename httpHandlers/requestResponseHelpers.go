@@ -25,6 +25,10 @@ func WriteJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		log.Printf("Error encoding JSON response:%v", err)
 	}
+	/*
+		render.Status(r, status)
+		render.JSON(w, r, payload)
+	*/
 }
 
 func writeResponse(w http.ResponseWriter, message string) {
@@ -37,3 +41,27 @@ func writeResponse(w http.ResponseWriter, message string) {
 func handleInvalidTokenResponse(w http.ResponseWriter) {
 	WriteMessageResponse(w, http.StatusForbidden, "Invalid token")
 }
+
+// todo
+//func WriteSessionCookie(w http.ResponseWriter, token string, expiry time.Time) {
+//	cookie := &http.Cookie{
+//		Name:     s.Cookie.Name,
+//		Value:    token,
+//		Path:     s.Cookie.Path,
+//		Domain:   s.Cookie.Domain,
+//		Secure:   s.Cookie.Secure,
+//		HttpOnly: s.Cookie.HttpOnly,
+//		SameSite: s.Cookie.SameSite,
+//	}
+//
+//	if expiry.IsZero() {
+//		cookie.Expires = time.Unix(1, 0)
+//		cookie.MaxAge = -1
+//	} else if s.Cookie.Persist || s.GetBool(ctx, "__rememberMe") {
+//		cookie.Expires = time.Unix(expiry.Unix()+1, 0)        // Round up to the nearest second.
+//		cookie.MaxAge = int(time.Until(expiry).Seconds() + 1) // Round up to the nearest second.
+//	}
+//
+//	w.Header().Add("Set-Cookie", cookie.String())
+//	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
+//}

@@ -112,10 +112,6 @@ func getFilterForTopMentorList() bson.M {
 }
 
 func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*model.User, error) {
-	if offset == 0 && limit == 0 {
-		return nil, nil
-	}
-
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -412,14 +408,14 @@ func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
 	return result, nil
 }
 
-func GetUserByEmail(email string) (model.User, error) {
+func GetUserByEmail(email string) (*model.User, error) {
 	usersCollection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	filter := bson.M{"email": email}
 	var user model.User
 	err := usersCollection.FindOne(ctx, filter).Decode(&user)
-	return user, err
+	return &user, err
 }
 
 func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
@@ -666,6 +662,11 @@ func UpdateMentorRequest(request string, id string) {
 }
 
 func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
+	if len(userIds) == 0 {
+		log.Println("GetUserImages: empty list of users")
+		return nil, nil
+	}
+
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	imagesForUsersPipeline := GetImagesForUsersPipeline(userIds)

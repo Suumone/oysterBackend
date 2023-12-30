@@ -75,7 +75,7 @@ func GetUserImage(w http.ResponseWriter, r *http.Request) {
 	WriteJSONResponse(w, http.StatusOK, userImage)
 }
 
-func GetImageConfigurations(w http.ResponseWriter, _ *http.Request) {
+func GetImageConfigurations(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"imageLimitSizeMB":  utils.ImageLimitSizeMB / (1024 * 1024),
 		"allowedExtensions": allowedExtensions,
