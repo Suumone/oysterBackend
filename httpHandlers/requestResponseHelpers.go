@@ -2,8 +2,10 @@ package httpHandlers
 
 import (
 	"encoding/json"
+	"github.com/go-chi/render"
 	"log"
 	"net/http"
+	"time"
 )
 
 func ParseJSONRequest(r *http.Request, payload interface{}) error {
@@ -14,54 +16,35 @@ func ParseJSONRequest(r *http.Request, payload interface{}) error {
 	return err
 }
 
-func WriteMessageResponse(w http.ResponseWriter, status int, message string) {
-	w.WriteHeader(status)
-	writeResponse(w, message)
+func WriteMessageResponse(w http.ResponseWriter, r *http.Request, status int, message string) {
+	render.Status(r, status)
+	render.PlainText(w, r, message)
 }
 
-func WriteJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("Error encoding JSON response:%v", err)
+func WriteJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
+	render.Status(r, status)
+	render.JSON(w, r, payload)
+}
+
+func writeSessionCookie(w http.ResponseWriter, name, value string, time time.Time) {
+	cookie := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Expires:  time,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteDefaultMode,
 	}
-	/*
-		render.Status(r, status)
-		render.JSON(w, r, payload)
-	*/
+	http.SetCookie(w, cookie)
 }
 
-func writeResponse(w http.ResponseWriter, message string) {
-	_, err := w.Write([]byte(message))
-	if err != nil {
-		log.Printf("Error writing response:%v\n", err)
+func deleteCookie(w http.ResponseWriter, name string) {
+	cookie := http.Cookie{
+		Name:    name,
+		MaxAge:  -1,
+		Path:    "/",
+		Expires: time.Now().Add(-expirationTime),
 	}
+	http.SetCookie(w, &cookie)
 }
-
-func handleInvalidTokenResponse(w http.ResponseWriter) {
-	WriteMessageResponse(w, http.StatusForbidden, "Invalid token")
-}
-
-// todo
-//func WriteSessionCookie(w http.ResponseWriter, token string, expiry time.Time) {
-//	cookie := &http.Cookie{
-//		Name:     s.Cookie.Name,
-//		Value:    token,
-//		Path:     s.Cookie.Path,
-//		Domain:   s.Cookie.Domain,
-//		Secure:   s.Cookie.Secure,
-//		HttpOnly: s.Cookie.HttpOnly,
-//		SameSite: s.Cookie.SameSite,
-//	}
-//
-//	if expiry.IsZero() {
-//		cookie.Expires = time.Unix(1, 0)
-//		cookie.MaxAge = -1
-//	} else if s.Cookie.Persist || s.GetBool(ctx, "__rememberMe") {
-//		cookie.Expires = time.Unix(expiry.Unix()+1, 0)        // Round up to the nearest second.
-//		cookie.MaxAge = int(time.Until(expiry).Seconds() + 1) // Round up to the nearest second.
-//	}
-//
-//	w.Header().Add("Set-Cookie", cookie.String())
-//	w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
-//}

@@ -1,6 +1,7 @@
 package httpHandlers
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"log"
 	"net/http"
@@ -13,66 +14,71 @@ import (
 var allowedExtensions = []string{".jpg", ".jpeg", ".png", ".heic"}
 
 func UploadUserImage(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	err = r.ParseMultipartForm(utils.ImageLimitSizeMB)
+	err := r.ParseMultipartForm(utils.ImageLimitSizeMB)
 	if err != nil {
 		log.Printf("Error parsing multipart form: %v\n", err)
-		WriteJSONResponse(w, http.StatusBadRequest, "File too big")
+		WriteMessageResponse(w, r, http.StatusBadRequest, "File too big")
 		return
 	}
 
 	file, header, err := r.FormFile("profilePicture")
 	if err != nil {
 		log.Printf("Error retrieving the file: %v\n", err)
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error Retrieving the file")
+		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error Retrieving the file")
 		return
 	}
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !utils.Contains(allowedExtensions, ext) {
-		WriteJSONResponse(w, http.StatusBadRequest, "File type not allowed")
+		WriteMessageResponse(w, r, http.StatusBadRequest, "File type not allowed")
 		return
 	}
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		log.Printf("Error reading file: %v\n", err)
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error reading file")
+		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error reading file")
 		return
 	}
-	err = database.SaveProfilePicture(userId, fileBytes, ext)
+	err = database.SaveProfilePicture(userSession.UserId, fileBytes, ext)
 	if err != nil {
 		log.Printf("Error during saving picture: %v\n", err)
-		WriteMessageResponse(w, http.StatusBadRequest, "Error during saving picture")
+		WriteMessageResponse(w, r, http.StatusBadRequest, "Error during saving picture")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, "Profile picture successfully updated")
+	WriteMessageResponse(w, r, http.StatusOK, "Profile picture successfully updated")
 }
 
 func GetUserImage(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	var userId string
+	var userId primitive.ObjectID
 	if len(queryParameters) == 0 {
-		id, err := getUserIdFromToken(r)
-		if err != nil {
-			handleInvalidTokenResponse(w)
+		userSession := getUserSessionFromRequest(r)
+		if userSession == nil {
+			WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 			return
 		}
-		userId = id
+		userId = userSession.UserId
 	} else {
-		userId = queryParameters.Get("id")
+		var err error
+		userId, err = primitive.ObjectIDFromHex(queryParameters.Get("id"))
+		if err != nil {
+			log.Printf("GetUserImage: error converting id to objectId: %v\n", err)
+			WriteMessageResponse(w, r, http.StatusBadRequest, "Invalid id")
+		}
 	}
 	userImage, err := database.GetUserPictureByUserId(userId)
 	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database")
+		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error getting image from database")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, userImage)
+	WriteJSONResponse(w, r, http.StatusOK, userImage)
 }
 
 func GetImageConfigurations(w http.ResponseWriter, r *http.Request) {
@@ -80,5 +86,5 @@ func GetImageConfigurations(w http.ResponseWriter, r *http.Request) {
 		"imageLimitSizeMB":  utils.ImageLimitSizeMB / (1024 * 1024),
 		"allowedExtensions": allowedExtensions,
 	}
-	WriteJSONResponse(w, http.StatusOK, response)
+	WriteJSONResponse(w, r, http.StatusOK, response)
 }

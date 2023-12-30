@@ -74,47 +74,47 @@ func mapUserToMentorForRequest(user *model.User) model.MentorForRequest {
 }
 
 func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 	var requestPayload model.ChatgptHttpPayload
 	if err := ParseJSONRequest(r, &requestPayload); err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		WriteMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 
-	user, err := database.GetUserByID(userId)
+	user, err := database.GetUserByID(userSession.UserId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		WriteMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
 	if user.UserMentorRequest == requestPayload.Request {
-		mentors, err := database.GetMentors(nil, userId)
+		mentors, err := database.GetMentors(nil, userSession.UserId)
 		if err != nil {
-			WriteMessageResponse(w, http.StatusInternalServerError, "Error searching for mentors in database")
+			WriteMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors in database")
 			return
 		}
 		var mentorsResponse []model.MentorForRequest
 		for _, mentor := range mentors {
 			mentorsResponse = append(mentorsResponse, mapUserToMentorForRequest(mentor))
 		}
-		WriteJSONResponse(w, http.StatusOK, mentors)
+		WriteJSONResponse(w, r, http.StatusOK, mentors)
 	} else {
-		go database.UpdateMentorRequest(requestPayload.Request, userId)
+		go database.UpdateMentorRequest(requestPayload.Request, userSession.UserId)
 
-		mentorsFromChatgpt, err := sendRequestToChatgpt(requestPayload.Request, userId)
+		mentorsFromChatgpt, err := sendRequestToChatgpt(requestPayload.Request, userSession.UserId)
 		if err != nil {
-			WriteMessageResponse(w, http.StatusInternalServerError, "Error searching for mentors")
+			WriteMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors")
 			return
 		}
-		WriteJSONResponse(w, http.StatusOK, mentorsFromChatgpt)
+		WriteJSONResponse(w, r, http.StatusOK, mentorsFromChatgpt)
 	}
 }
 
-func sendRequestToChatgpt(request string, userId string) ([]model.MentorForRequest, error) {
-	mentors, err := database.GetMentors(nil, "")
+func sendRequestToChatgpt(request string, userId primitive.ObjectID) ([]model.MentorForRequest, error) {
+	mentors, err := database.GetMentors(nil, primitive.NilObjectID)
 	if err != nil {
 		return nil, errors.New("error getting mentors from database")
 	}
@@ -161,7 +161,7 @@ func sendRequestToChatgpt(request string, userId string) ([]model.MentorForReque
 		return filteredMentors, nil
 	} else {
 		var result []model.MentorForRequest
-		mentorsFromDb, err := database.GetMentors(url.Values{"offset": []string{"0"}, "limit": []string{"3"}}, "")
+		mentorsFromDb, err := database.GetMentors(url.Values{"offset": []string{"0"}, "limit": []string{"3"}}, primitive.NilObjectID)
 		if err != nil {
 			return result, nil
 		}

@@ -6,7 +6,6 @@ require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
 	github.com/go-co-op/gocron v1.37.0
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/rs/cors v1.10.1
 	github.com/sashabaranov/go-openai v1.17.5
 	go.mongodb.org/mongo-driver v1.12.1
