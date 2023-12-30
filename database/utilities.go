@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	UserCollectionName    = "users"
-	SessionCollectionName = "sessions"
-	ReviewCollectionName  = "reviews"
+	UserCollectionName        = "users"
+	SessionCollectionName     = "sessions"
+	ReviewCollectionName      = "reviews"
+	AuthSessionCollectionName = "authSessions"
 )
 
 // todo get from database

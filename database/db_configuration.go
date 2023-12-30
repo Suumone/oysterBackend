@@ -11,8 +11,10 @@ import (
 
 const dbTimeout = 10 * time.Second
 
-var MongoDBClient *mongo.Client
-var MongoDBOyster *mongo.Database
+var (
+	MongoDBClient *mongo.Client
+	MongoDBOyster *mongo.Database
+)
 
 func ConnectToMongoDB() error {
 	uri := os.Getenv("DB_ADDRESS")

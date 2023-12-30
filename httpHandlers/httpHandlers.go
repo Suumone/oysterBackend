@@ -17,12 +17,12 @@ import (
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		WriteJSONResponse(w, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	users, err := database.GetMentors(queryParameters, userId)
+	users, err := database.GetMentors(queryParameters, userSession.UserId.Hex())
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")
