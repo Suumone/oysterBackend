@@ -192,9 +192,8 @@ func ConfirmSession(sessionId string) (*model.SessionResponse, error) {
 	return updateSessionAndPrepareResponse(filter, updateOp)
 }
 
-func CancelSession(sessionId, userId string) (*model.SessionResponse, error) {
-	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
-	filter := bson.M{"_id": sessionIdObj}
+func CancelSession(sessionId, userId primitive.ObjectID) (*model.SessionResponse, error) {
+	filter := bson.M{"_id": sessionId}
 
 	user, err := GetUserByID(userId)
 	if err != nil {

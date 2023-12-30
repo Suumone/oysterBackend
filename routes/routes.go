@@ -21,7 +21,7 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.With(httpHandlers.AuthMiddleware).Post("/signOut", httpHandlers.SignOut)
 
 	r.With(httpHandlers.AuthMiddleware).Get("/getMentorList", httpHandlers.GetMentorsList)
-	r.With(httpHandlers.JWTMiddleware).Post("/calculateBestMentors", httpHandlers.CalculateBestMentors)
+	r.With(httpHandlers.AuthMiddleware).Post("/calculateBestMentors", httpHandlers.CalculateBestMentors)
 
 	r.Get("/getMentorListFilters", httpHandlers.GetMentorListFilters)
 	r.Get("/getMentor", httpHandlers.GetMentor)
@@ -34,7 +34,7 @@ func ConfigureRoutes(r *chi.Mux) {
 	r.Get("/getUserAvailableWeekdays", httpHandlers.GetUserAvailableWeekdays)
 	r.Get("/getUserAvailableSlots", httpHandlers.GetUserAvailableSlots)
 
-	r.With(httpHandlers.JWTMiddleware).Route("/myProfile", func(r chi.Router) {
+	r.With(httpHandlers.AuthMiddleware).Route("/myProfile", func(r chi.Router) {
 		r.Get("/", httpHandlers.GetProfileByToken)
 		r.Post("/update", httpHandlers.UpdateProfileByToken)
 		r.Post("/updatePassword", httpHandlers.ChangePassword)
@@ -43,7 +43,7 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Post("/uploadProfilePicture", httpHandlers.UploadUserImage)
 	})
 
-	r.With(httpHandlers.JWTMiddleware).Route("/session", func(r chi.Router) {
+	r.With(httpHandlers.AuthMiddleware).Route("/session", func(r chi.Router) {
 		r.Get("/", httpHandlers.GetSession)
 		r.Get("/getUserSessions", httpHandlers.GetUserSessions)
 		r.Post("/create", httpHandlers.CreateSession)

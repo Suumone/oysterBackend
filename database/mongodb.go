@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-func CreateMentor(user model.User) (primitive.ObjectID, error) {
+func CreateMentor(user *model.User) (primitive.ObjectID, error) {
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -30,7 +30,7 @@ func CreateMentor(user model.User) (primitive.ObjectID, error) {
 	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentors(params url.Values, userId string) ([]*model.User, error) {
+func GetMentors(params url.Values, userId primitive.ObjectID) ([]*model.User, error) {
 	filter, err := getFilterForMentorList(params, userId)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func getOffsetAndLimit(params url.Values) (int, int, error) {
 	return offset, limit, nil
 }
 
-func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
+func getFilterForMentorList(params url.Values, userId primitive.ObjectID) (bson.M, error) {
 	filter := bson.M{
 		"isApproved": true,
 	}
@@ -91,7 +91,7 @@ func getFilterForMentorList(params url.Values, userId string) (bson.M, error) {
 			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
-	if userId != "" {
+	if utils.IsEmptyStruct(userId) {
 		bestMentors, err := getUserBestMentors(userId)
 		if err != nil {
 			return nil, err
@@ -149,7 +149,7 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*mod
 	return users, nil
 }
 
-func GetUserWithImageByID(id string) (*model.User, error) {
+func GetUserWithImageByID(id primitive.ObjectID) (*model.User, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 
@@ -165,12 +165,11 @@ func GetUserWithImageByID(id string) (*model.User, error) {
 	}()
 
 	collection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(id)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": id}
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		handleFindError(err, id, "user")
+		handleFindError(err, id.Hex(), "user")
 		return nil, err
 	}
 
@@ -188,16 +187,15 @@ func GetUserWithImageByID(id string) (*model.User, error) {
 	return &user, err
 }
 
-func GetUserByID(id string) (*model.User, error) {
+func GetUserByID(id primitive.ObjectID) (*model.User, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(id)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": id}
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		handleFindError(err, id, "user")
+		handleFindError(err, id.Hex(), "user")
 		return nil, err
 	}
 	return &user, err
@@ -257,11 +255,10 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 	}
 }
 
-func UpdateUser(user *model.User, id string) (*model.User, error) {
+func UpdateUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
 	user.IsNewUser = false
-	idToFind, _ := primitive.ObjectIDFromHex(id)
 	collection := GetCollection(UserCollectionName)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": id}
 	updateOp := bson.M{"$set": user}
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -418,10 +415,9 @@ func GetUserByEmail(email string) (*model.User, error) {
 	return &user, err
 }
 
-func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
+func ChangePassword(userId primitive.ObjectID, passwordPayload model.PasswordChange) error {
 	userCollection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 	var user model.User
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -431,7 +427,7 @@ func ChangePassword(userId string, passwordPayload model.PasswordChange) error {
 		return err
 	}
 	if checkPassword(user.Password, passwordPayload.OldPassword) {
-		return updatePassword(idToFind, passwordPayload.NewPassword)
+		return updatePassword(userId, passwordPayload.NewPassword)
 	} else {
 		return errors.New("old passwords do not match")
 	}
@@ -463,12 +459,11 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 	return nil
 }
 
-func GetCurrentState(userId string) model.UserState {
+func GetCurrentState(userId primitive.ObjectID) model.UserState {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 	var user model.UserState
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
@@ -482,20 +477,18 @@ func GetCurrentState(userId string) model.UserState {
 	return user
 }
 
-func UpdateUserState(userId string) error {
+func UpdateUserState(userId primitive.ObjectID) error {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 	var user model.User
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	if err != nil {
-		handleFindError(err, userId, "user")
+		handleFindError(err, userId.Hex(), "user")
 		return err
 	}
 
-	filter = bson.M{"_id": idToFind}
 	update := bson.M{
 		"$set": bson.M{
 			"asMentor": !user.AsMentor,
@@ -511,7 +504,7 @@ func UpdateUserState(userId string) error {
 	return nil
 }
 
-func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) error {
+func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtension string) error {
 	bucket, err := gridfs.NewBucket(
 		MongoDBOyster,
 	)
@@ -519,7 +512,7 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 		log.Printf("Failed create bucket for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
-	uploadStream, err := bucket.OpenUploadStream(userId+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
+	uploadStream, err := bucket.OpenUploadStream(userId.Hex()+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
 	if err != nil {
 		log.Printf("Failed to open image stream for user (id: %s) error:%s\n", userId, err)
 		return err
@@ -532,8 +525,7 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 	}
 
 	userCollection := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
 			"profileImageId": uploadStream.FileID.(primitive.ObjectID),
@@ -549,12 +541,11 @@ func SaveProfilePicture(userId string, fileBytes []byte, fileExtension string) e
 	return nil
 }
 
-func GetUserPictureByUserId(userId string) (*model.UserImage, error) {
+func GetUserPictureByUserId(userId primitive.ObjectID) (*model.UserImage, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	imageForUserPipeline := GetImageForUserPipeline(idToFind)
+	imageForUserPipeline := GetImageForUserPipeline(userId)
 	cursor, err := usersColl.Aggregate(ctx, imageForUserPipeline)
 	if err != nil {
 		log.Printf("Failed to execute image search: %v", err)
@@ -574,12 +565,11 @@ func GetUserPictureByUserId(userId string) (*model.UserImage, error) {
 	return &userImage, nil
 }
 
-func SaveBestMentorsForUser(userId string, mentors []model.MentorForRequest) {
+func SaveBestMentorsForUser(userId primitive.ObjectID, mentors []model.MentorForRequest) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 
 	var mentorsIds []string
 	for _, mentor := range mentors {
@@ -598,12 +588,11 @@ func SaveBestMentorsForUser(userId string, mentors []model.MentorForRequest) {
 	}
 }
 
-func getUserBestMentors(userId string) ([]primitive.ObjectID, error) {
+func getUserBestMentors(userId primitive.ObjectID) ([]primitive.ObjectID, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(userId)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": userId}
 	var user model.UserBestMentors
 	err := usersColl.FindOne(ctx, filter).Decode(&user)
 	if errors.Is(err, mongo.ErrNoDocuments) {
@@ -645,20 +634,19 @@ func GetValuesForSelect(params url.Values) ([]model.ValuesToSelect, error) {
 	return valuesToSelect, nil
 }
 
-func UpdateMentorRequest(request string, id string) {
-	idToFind, _ := primitive.ObjectIDFromHex(id)
+func UpdateMentorRequest(request string, id primitive.ObjectID) {
 	collection := GetCollection(UserCollectionName)
-	filter := bson.M{"_id": idToFind}
+	filter := bson.M{"_id": id}
 	updateOp := bson.M{"$set": bson.M{"userMentorRequest": request}}
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	_, err := collection.UpdateOne(ctx, filter, updateOp)
 	if err != nil {
-		log.Printf("Failed to update mentor request(%s) for user(%s) in DB: %v\n", request, id, err)
+		log.Printf("Failed to update mentor request(%s) for user(%s) in DB: %v\n", request, id.Hex(), err)
 		return
 	}
 
-	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id)
+	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id.Hex())
 }
 
 func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
