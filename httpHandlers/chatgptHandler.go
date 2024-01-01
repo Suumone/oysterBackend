@@ -76,40 +76,40 @@ func mapUserToMentorForRequest(user *model.User) model.MentorForRequest {
 func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 	userSession := getUserSessionFromRequest(r)
 	if userSession == nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 	var requestPayload model.ChatgptHttpPayload
-	if err := ParseJSONRequest(r, &requestPayload); err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+	if err := parseJSONRequest(r, &requestPayload); err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 
 	user, err := database.GetUserByID(userSession.UserId)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusNotFound, "User not found")
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
 	if user.UserMentorRequest == requestPayload.Request {
 		mentors, err := database.GetMentors(nil, userSession.UserId)
 		if err != nil {
-			WriteMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors in database")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors in database")
 			return
 		}
 		var mentorsResponse []model.MentorForRequest
 		for _, mentor := range mentors {
 			mentorsResponse = append(mentorsResponse, mapUserToMentorForRequest(mentor))
 		}
-		WriteJSONResponse(w, r, http.StatusOK, mentors)
+		writeJSONResponse(w, r, http.StatusOK, mentors)
 	} else {
 		go database.UpdateMentorRequest(requestPayload.Request, userSession.UserId)
 
 		mentorsFromChatgpt, err := sendRequestToChatgpt(requestPayload.Request, userSession.UserId)
 		if err != nil {
-			WriteMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors")
 			return
 		}
-		WriteJSONResponse(w, r, http.StatusOK, mentorsFromChatgpt)
+		writeJSONResponse(w, r, http.StatusOK, mentorsFromChatgpt)
 	}
 }
 

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func ParseJSONRequest(r *http.Request, payload interface{}) error {
+func parseJSONRequest(r *http.Request, payload interface{}) error {
 	err := json.NewDecoder(r.Body).Decode(payload)
 	if err != nil {
 		log.Printf("Error parsing JSON request error(%s), body(%s):\n", err, r.Body)
@@ -16,12 +16,12 @@ func ParseJSONRequest(r *http.Request, payload interface{}) error {
 	return err
 }
 
-func WriteMessageResponse(w http.ResponseWriter, r *http.Request, status int, message string) {
+func writeMessageResponse(w http.ResponseWriter, r *http.Request, status int, message string) {
 	render.Status(r, status)
 	render.PlainText(w, r, message)
 }
 
-func WriteJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
+func writeJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
 	render.Status(r, status)
 	render.JSON(w, r, payload)
 }

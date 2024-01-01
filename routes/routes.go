@@ -19,6 +19,7 @@ func ConfigureRoutes(r *chi.Mux) {
 	})
 	r.Post("/signIn", httpHandlers.SignIn)
 	r.With(httpHandlers.AuthMiddleware).Post("/signOut", httpHandlers.SignOut)
+	r.With(httpHandlers.AuthMiddleware).Post("/refreshAuthSession", httpHandlers.RefreshAuthSession)
 
 	r.With(httpHandlers.AuthMiddleware).Get("/getMentorList", httpHandlers.GetMentorsList)
 	r.With(httpHandlers.AuthMiddleware).Post("/calculateBestMentors", httpHandlers.CalculateBestMentors)
