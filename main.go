@@ -17,7 +17,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer database.CloseMongoDBConnection()
-	schedulerJobs.StartStatusCalculation()
+	schedulerJobs.StartJobs()
 
 	r := chi.NewRouter()
 	routes.ConfigureCors(r)
