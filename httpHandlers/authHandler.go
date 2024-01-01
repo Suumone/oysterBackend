@@ -40,7 +40,7 @@ var (
 	}
 )
 
-type Oauth2User struct {
+type oauth2User struct {
 	Name  string `json:"name" bson:"name"`
 	Email string `json:"email" bson:"email"`
 }
@@ -55,24 +55,25 @@ func (s session) isExpired() bool {
 	return s.Expiry < time.Now().Unix()
 }
 
-func saveSession(s session) (string, error) {
+func saveSession(s *session) (string, error) {
 	collection := database.GetCollection(database.AuthSessionCollectionName)
 	result, err := collection.InsertOne(context.Background(), s)
 	if err != nil {
-		log.Printf("Error saving session in db: %v\n", err)
+		log.Printf("Error saving auth session in db: %v\n", err)
 		return "", err
 	}
 	return result.InsertedID.(primitive.ObjectID).Hex(), err
 }
 
-func getUserSessionFromRequest(r *http.Request) *session {
-	userSession, ok := r.Context().Value("userSession").(*session)
-	if !ok {
-		log.Printf("getUserSessionFromRequest: no session in context")
-		return nil
+func updateSession(sessionId primitive.ObjectID, expiryTime time.Time) error {
+	collection := database.GetCollection(database.AuthSessionCollectionName)
+	updateOp := bson.M{"$set": bson.M{"expiry": expiryTime}}
+	result, err := collection.UpdateByID(context.Background(), sessionId, updateOp)
+	if err != nil || result.ModifiedCount == 0 {
+		log.Printf("Error updeting auth session in db: %v\n", err)
+		return err
 	}
-
-	return userSession
+	return nil
 }
 
 func findSession(sessionId string) (*session, bool) {
@@ -83,20 +84,14 @@ func findSession(sessionId string) (*session, bool) {
 		return nil, false
 	}
 	filter := bson.M{"_id": sessionIdObj}
-	result := collection.FindOne(context.Background(), filter)
-	err = result.Err()
-	if err != nil {
-		log.Printf("Session was not found(%s): %v\n", sessionId, err)
-		return nil, false
-	}
 	var s session
-	err = result.Decode(&s)
+	err = collection.FindOne(context.Background(), filter).Decode(&s)
 	if err != nil {
-		log.Printf("Error decoding session(%s): %v\n", sessionId, err)
+		log.Printf("Auth session was not found(%s): %v\n", sessionId, err)
 		return nil, false
 	}
 	if time.Now().Unix() > s.Expiry {
-		log.Printf("Session(%s) expired\n", sessionId)
+		log.Printf("Auth session(%s) expired\n", sessionId)
 		return nil, false
 	}
 	return &s, true
@@ -113,21 +108,30 @@ func deleteSession(s *session) error {
 	return nil
 }
 
+func getUserSessionFromRequest(r *http.Request) *session {
+	userSession, ok := r.Context().Value("userSession").(*session)
+	if !ok {
+		log.Printf("getUserSessionFromRequest: no auth session in context")
+		return nil
+	}
+	return userSession
+}
+
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(sessionCookieName)
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				WriteMessageResponse(w, r, http.StatusUnauthorized, "Missed session id")
+				writeMessageResponse(w, r, http.StatusUnauthorized, "Missed auth session id")
 				return
 			}
-			WriteMessageResponse(w, r, http.StatusBadRequest, err.Error())
+			writeMessageResponse(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
 		sessionId := c.Value
 		userSession, ok := findSession(sessionId)
 		if !ok {
-			WriteMessageResponse(w, r, http.StatusUnauthorized, "User unauthorized")
+			writeMessageResponse(w, r, http.StatusUnauthorized, "User unauthorized")
 			return
 		}
 
@@ -138,75 +142,71 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 func SignIn(w http.ResponseWriter, r *http.Request) {
 	var credentials model.Auth
-
 	if err := render.DecodeJSON(r.Body, &credentials); err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
-
 	if _, err := mail.ParseAddress(credentials.Email); err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Email is not valid")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Email is not valid")
 		return
 	}
 
 	user, err := database.GetUserByEmail(credentials.Email)
 	if err != nil || user == nil {
-		WriteMessageResponse(w, r, http.StatusUnauthorized, "Invalid username or password")
+		writeMessageResponse(w, r, http.StatusUnauthorized, "Invalid username or password")
 		return
 	}
-
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(credentials.Password)); err != nil {
-		WriteMessageResponse(w, r, http.StatusUnauthorized, "Wrong password")
+		writeMessageResponse(w, r, http.StatusUnauthorized, "Wrong password")
 		return
 	}
-
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := saveSession(session{
+	sessionId, err := saveSession(&session{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
 		return
 	}
 
 	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
-	WriteMessageResponse(w, r, http.StatusOK, "Sign in successful")
+	writeMessageResponse(w, r, http.StatusOK, "Sign in successful")
 }
 
 func SignOut(w http.ResponseWriter, r *http.Request) {
 	userSession := getUserSessionFromRequest(r)
 	if userSession == nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 	err := deleteSession(userSession)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error deleting session")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error deleting session")
 		return
 	}
 
 	deleteCookie(w, sessionCookieName)
-	WriteMessageResponse(w, r, http.StatusOK, "Sign out successful")
+	writeMessageResponse(w, r, http.StatusOK, "Sign out successful")
 }
 
 func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	var authData model.Auth
-	err := ParseJSONRequest(r, &authData)
+	err := parseJSONRequest(r, &authData)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 
 	_, err = mail.ParseAddress(authData.Email)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Email is not valid")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Email is not valid")
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(authData.Password), bcrypt.DefaultCost)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error hashing password")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error hashing password")
 		return
 	}
 
@@ -219,22 +219,22 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 
 	user.Id, err = database.CreateMentor(&user)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error inserting user into database")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error inserting user into database")
 		return
 	}
 
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := saveSession(session{
+	sessionId, err := saveSession(&session{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
 		return
 	}
 
 	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
-	WriteMessageResponse(w, r, http.StatusOK, "Sign up successful")
+	writeMessageResponse(w, r, http.StatusOK, "Sign up successful")
 }
 
 func generateStateOauthCookie(w http.ResponseWriter) (string, error) {
@@ -245,7 +245,6 @@ func generateStateOauthCookie(w http.ResponseWriter) (string, error) {
 		log.Printf("Failed to generate random state: %v", err)
 		return "", err
 	}
-
 	state := base64.URLEncoding.EncodeToString(b)
 	writeSessionCookie(w, oauthStateCookieName, state, expiration)
 	return state, nil
@@ -254,7 +253,7 @@ func generateStateOauthCookie(w http.ResponseWriter) (string, error) {
 func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	oauthState, err := generateStateOauthCookie(w)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Failed to generate state")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Failed to generate state")
 		return
 	}
 	url := conf.AuthCodeURL(oauthState)
@@ -274,12 +273,12 @@ func getUserDataFromGoogle(code string) (*model.User, error) {
 	}
 	defer response.Body.Close()
 
-	var oauth2User Oauth2User
-	if err = json.NewDecoder(response.Body).Decode(&oauth2User); err != nil {
+	var user oauth2User
+	if err = json.NewDecoder(response.Body).Decode(&user); err != nil {
 		log.Printf("Failed to decode response from google: %v\n", err)
 		return nil, err
 	}
-	return &model.User{Email: oauth2User.Email, Username: oauth2User.Name}, nil
+	return &model.User{Email: user.Email, Username: user.Name}, nil
 }
 
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
@@ -302,47 +301,62 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		user.IsNewUser = true
 		user.Id, err = database.CreateMentor(userInfo)
 		if err != nil {
-			WriteMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return
 		}
 	} else if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Database search error: "+err.Error())
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database search error: "+err.Error())
 		return
 	}
 
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := saveSession(session{
+	sessionId, err := saveSession(&session{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database saving session error")
 		return
 	}
 
 	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
-
-	WriteMessageResponse(w, r, http.StatusOK, "Sign up successful")
+	writeMessageResponse(w, r, http.StatusOK, "Sign up successful")
 }
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	userSession := getUserSessionFromRequest(r)
 	if userSession == nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 	var passwordPayload model.PasswordChange
-	err := ParseJSONRequest(r, &passwordPayload)
+	err := parseJSONRequest(r, &passwordPayload)
 	if err != nil {
-		WriteMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 
 	err = database.ChangePassword(userSession.UserId, passwordPayload)
 	if err != nil {
 		log.Printf("Error updating password: %v\n", err)
-		WriteMessageResponse(w, r, http.StatusInternalServerError, "Error updating password")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating password")
 		return
 	}
-	WriteMessageResponse(w, r, http.StatusOK, "Password successfully updated")
+	writeMessageResponse(w, r, http.StatusOK, "Password successfully updated")
+}
+
+func RefreshAuthSession(w http.ResponseWriter, r *http.Request) {
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
+		return
+	}
+	expiresAt := time.Now().Add(expirationTime)
+	err := updateSession(userSession.SessionId, expiresAt)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error updating auth session")
+		return
+	}
+	writeSessionCookie(w, sessionCookieName, userSession.SessionId.Hex(), expiresAt)
+	writeMessageResponse(w, r, http.StatusOK, "Auth session updated successful")
 }

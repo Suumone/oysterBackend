@@ -12,46 +12,73 @@ import (
 	"time"
 )
 
-const INTERVAL = 30
+const (
+	statusCalculationInterval     = 30 * time.Minute
+	deleteExpiredSessionsInterval = 24 * time.Hour
+	dbTimeout                     = 5 * time.Minute
+)
 
-func StartStatusCalculation() {
+func StartJobs() {
+	startAsyncJob(statusCalculation, statusCalculationInterval)
+	startAsyncJob(deleteExpired, deleteExpiredSessionsInterval)
+}
+
+func startAsyncJob(jobFunc func(), interval time.Duration) {
 	j := gocron.NewScheduler(time.UTC)
-	_, err := j.Every(INTERVAL).Minutes().Do(statusCalculation)
+	_, err := j.Every(interval).Do(jobFunc)
 	if err != nil {
-		log.Fatalf("Error initializing status calculation job: %v\n", err)
+		log.Fatalf("Error initializing job: %v\n", err)
 		return
 	}
 	j.StartAsync()
 }
 
 func statusCalculation() {
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	runJobWithTimeout(func(ctx context.Context) {
+		sessionCollection := database.GetCollection(database.SessionCollectionName)
+
+		filterExpired := bson.M{
+			"sessionTimeEnd": bson.M{"$lt": time.Now()},
+			"sessionStatus":  bson.M{"$lt": model.Confirmed},
+		}
+		filterCompleted := bson.M{
+			"sessionTimeStart": bson.M{"$lt": time.Now()},
+			"sessionStatus":    model.Confirmed,
+		}
+		updateExpired := bson.M{"$set": bson.M{"sessionStatus": model.Expired}}
+		updateCompleted := bson.M{"$set": bson.M{"sessionStatus": model.Completed}}
+
+		runUpdateManyJob(ctx, sessionCollection, filterExpired, updateExpired, model.Expired.String())
+		runUpdateManyJob(ctx, sessionCollection, filterCompleted, updateCompleted, model.Completed.String())
+	})
+}
+
+func deleteExpired() {
+	runJobWithTimeout(func(ctx context.Context) {
+		collection := database.GetCollection(database.AuthSessionCollectionName)
+		filter := bson.M{"expiry": bson.M{"$lt": time.Now().Unix()}}
+		runDeleteManyJob(ctx, collection, filter)
+	})
+}
+
+func runJobWithTimeout(jobFunc func(ctx context.Context)) {
+	ctx, cancel := context.WithTimeout(context.TODO(), dbTimeout)
 	defer cancel()
-	sessionCollection := database.GetCollection(database.SessionCollectionName)
+	jobFunc(ctx)
+}
 
-	filter := bson.M{
-		"sessionTimeEnd": bson.M{"$lt": time.Now()},
-		"sessionStatus":  bson.M{"$lt": model.Confirmed},
-	}
-	update := bson.M{
-		"$set": bson.M{"sessionStatus": model.Expired},
-	}
-	result, err := sessionCollection.UpdateMany(ctx, filter, update)
+func runUpdateManyJob(ctx context.Context, collection *mongo.Collection, filter, update bson.M, statusType string) {
+	result, err := collection.UpdateMany(ctx, filter, update)
 	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-		log.Printf("Status calculation job set expired status error: %v\n", err)
+		log.Printf("UpdateMany job error: %v\n", err)
 	}
-	log.Printf("Matched %v documents and modified %v documents with expired status", result.MatchedCount, result.ModifiedCount)
+	log.Printf("Matched %v documents and modified %v documents for %s status\n", result.MatchedCount, result.ModifiedCount, statusType)
+}
 
-	filter = bson.M{
-		"sessionTimeStart": bson.M{"$lt": time.Now()},
-		"sessionStatus":    model.Confirmed,
+func runDeleteManyJob(ctx context.Context, collection *mongo.Collection, filter bson.M) {
+	result, err := collection.DeleteMany(ctx, filter)
+	if err != nil {
+		log.Printf("DeleteMany job error: %v\n", err)
 	}
-	update = bson.M{
-		"$set": bson.M{"sessionStatus": model.Completed},
-	}
-	result, err = sessionCollection.UpdateMany(ctx, filter, update)
-	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
-		log.Printf("Status calculation job set completed status error: %v\n", err)
-	}
-	log.Printf("Matched %v documents and modified %v documents with completed status\n", result.MatchedCount, result.ModifiedCount)
+	log.Printf("Deleted count: %v\n", result.DeletedCount)
 }
