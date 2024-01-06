@@ -4,12 +4,13 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"oysterProject/model"
 	"time"
 )
 
-func SaveSession(s *model.AuthSession) (string, error) {
+func SaveAuthSession(s *model.AuthSession) (string, error) {
 	collection := GetCollection(AuthSessionCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -21,20 +22,22 @@ func SaveSession(s *model.AuthSession) (string, error) {
 	return result.InsertedID.(primitive.ObjectID).Hex(), err
 }
 
-func UpdateSession(sessionId primitive.ObjectID, expiryTime time.Time) error {
+func UpdateAuthSession(sessionId primitive.ObjectID, expiryTime time.Time) (*model.AuthSession, error) {
 	collection := GetCollection(AuthSessionCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
+	filter := bson.M{"_id": sessionId}
 	updateOp := bson.M{"$set": bson.M{"expiry": expiryTime.Unix()}}
-	result, err := collection.UpdateByID(ctx, sessionId, updateOp)
-	if err != nil || result.ModifiedCount == 0 {
+	var result model.AuthSession
+	err := collection.FindOneAndUpdate(ctx, filter, updateOp, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&result)
+	if err != nil {
 		log.Printf("Error updeting auth session in db: %v\n", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return &result, nil
 }
 
-func FindSession(sessionId string) (*model.AuthSession, bool) {
+func FindAuthSession(sessionId string) (*model.AuthSession, bool) {
 	collection := GetCollection(AuthSessionCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
@@ -57,7 +60,7 @@ func FindSession(sessionId string) (*model.AuthSession, bool) {
 	return &s, true
 }
 
-func DeleteSession(s *model.AuthSession) error {
+func DeleteAuthSession(s *model.AuthSession) error {
 	collection := GetCollection(AuthSessionCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()

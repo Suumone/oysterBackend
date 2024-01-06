@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-chi/render"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
@@ -58,14 +59,19 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			writeMessageResponse(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
-		sessionId := c.Value
-		userSession, ok := database.FindSession(sessionId)
-		if !ok {
+		sessionId, err := primitive.ObjectIDFromHex(c.Value)
+		if err != nil {
+
+		}
+		expiresAt := time.Now().Add(expirationTime)
+		userSession, err := database.UpdateAuthSession(sessionId, expiresAt)
+		if err != nil {
 			writeMessageResponse(w, r, http.StatusUnauthorized, "User unauthorized")
 			return
 		}
 
 		ctx := context.WithValue(r.Context(), "userSession", userSession)
+		writeSessionCookie(w, sessionCookieName, userSession.SessionId.Hex(), expiresAt)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -91,7 +97,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := database.SaveSession(&model.AuthSession{
+	sessionId, err := database.SaveAuthSession(&model.AuthSession{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
@@ -110,7 +116,7 @@ func SignOut(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	err := database.DeleteSession(userSession)
+	err := database.DeleteAuthSession(userSession)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error deleting session")
 		return
@@ -154,7 +160,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := database.SaveSession(&model.AuthSession{
+	sessionId, err := database.SaveAuthSession(&model.AuthSession{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
@@ -240,7 +246,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiresAt := time.Now().Add(expirationTime)
-	sessionId, err := database.SaveSession(&model.AuthSession{
+	sessionId, err := database.SaveAuthSession(&model.AuthSession{
 		UserId: user.Id,
 		Expiry: expiresAt.Unix(),
 	})
@@ -282,7 +288,7 @@ func RefreshAuthSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expiresAt := time.Now().Add(expirationTime)
-	err := database.UpdateSession(userSession.SessionId, expiresAt)
+	_, err := database.UpdateAuthSession(userSession.SessionId, expiresAt)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error updating auth session")
 		return
