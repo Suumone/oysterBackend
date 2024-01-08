@@ -91,7 +91,7 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if user.UserMentorRequest == requestPayload.Request {
-		mentors, err := database.GetMentors(nil, userSession.UserId)
+		mentors, err := database.GetBestMentors(userSession.UserId)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors in database")
 			return
@@ -200,8 +200,20 @@ func getMentorsFilteredWithChatgpt(mentorsForRequest []model.MentorForRequest, m
 
 func parseChatgptResponse(resp openai.ChatCompletionResponse) []string {
 	cleanedString := strings.ReplaceAll(resp.Choices[0].Message.Content, `"`, "")
+	cleanedString = strings.ReplaceAll(cleanedString, " ", "")
 	cleanedString = strings.ReplaceAll(cleanedString, "[", "")
 	cleanedString = strings.ReplaceAll(cleanedString, "]", "")
-	stringArray := strings.Split(cleanedString, ", ")
-	return stringArray
+	cleanedString = strings.ReplaceAll(cleanedString, ",", "\n")
+	stringArray := strings.Split(cleanedString, "\n")
+	return removeEmptyStrings(stringArray)
+}
+
+func removeEmptyStrings(slice []string) []string {
+	var result []string
+	for _, s := range slice {
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
 }

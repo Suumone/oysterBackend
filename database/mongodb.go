@@ -91,8 +91,8 @@ func getFilterForMentorList(params url.Values, userId primitive.ObjectID) (bson.
 			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
-	if utils.IsEmptyStruct(userId) {
-		bestMentors, err := getUserBestMentors(userId)
+	if !userId.IsZero() {
+		bestMentors, err := getUserBestMentorIds(userId)
 		if err != nil {
 			return nil, err
 		}
@@ -361,7 +361,7 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	reviewColl := GetCollection("reviews")
+	reviewColl := GetCollection(ReviewCollectionName)
 	pipeline := GetFrontPageReviewsPipeline()
 	cursor, err := reviewColl.Aggregate(ctx, pipeline)
 	if err != nil {
@@ -588,7 +588,7 @@ func SaveBestMentorsForUser(userId primitive.ObjectID, mentors []model.MentorFor
 	}
 }
 
-func getUserBestMentors(userId primitive.ObjectID) ([]primitive.ObjectID, error) {
+func getUserBestMentorIds(userId primitive.ObjectID) ([]primitive.ObjectID, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
@@ -603,6 +603,31 @@ func getUserBestMentors(userId primitive.ObjectID) ([]primitive.ObjectID, error)
 		return nil, err
 	}
 	return user.BestMentors, nil
+}
+
+func GetBestMentors(userId primitive.ObjectID) ([]*model.User, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	collection := GetCollection(UserCollectionName)
+	pipeline := GetUserBestMentorsPipeline(userId)
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		log.Printf("GetBestMentors: failed to aggregate best mentors: %v", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []*model.User
+	for cursor.Next(ctx) {
+		var user model.User
+		err = cursor.Decode(&user)
+		if err != nil {
+			log.Printf("GetBestMentors: failed to decode user: %v", err)
+			return nil, err
+		}
+		result = append(result, &user)
+	}
+	return result, nil
 }
 
 func GetValuesForSelect(params url.Values) ([]model.ValuesToSelect, error) {
