@@ -18,6 +18,7 @@ import (
 	"os"
 	"oysterProject/database"
 	"oysterProject/model"
+	"oysterProject/utils"
 	"time"
 )
 
@@ -147,10 +148,11 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := model.User{
-		Email:     authData.Email,
-		Password:  string(hashedPassword),
-		IsNewUser: true,
-		AsMentor:  authData.AsMentor,
+		Email:            authData.Email,
+		Password:         string(hashedPassword),
+		IsNewUser:        true,
+		AsMentor:         authData.AsMentor,
+		UserRegisterDate: utils.TimePtr(time.Now()),
 	}
 
 	user.Id, err = database.CreateMentor(&user)
@@ -235,6 +237,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	user, err := database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		user.IsNewUser = true
+		user.UserRegisterDate = utils.TimePtr(time.Now())
 		user.Id, err = database.CreateMentor(userInfo)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())

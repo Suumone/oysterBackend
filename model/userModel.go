@@ -2,6 +2,7 @@ package model
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"time"
 )
 
 type User struct {
@@ -14,7 +15,6 @@ type User struct {
 	FacebookLink           string               `json:"facebookLink,omitempty" bson:"facebookLink,omitempty"`
 	InstagramLink          string               `json:"instagramLink,omitempty" bson:"instagramLink,omitempty"`
 	LinkedInLink           string               `json:"linkedinLink,omitempty" bson:"linkedinLink,omitempty"`
-	CalendlyLink           string               `json:"calendlyLink,omitempty" bson:"calendlyLink,omitempty"`
 	WelcomeText            string               `json:"welcomeText,omitempty" bson:"welcomeText,omitempty"`
 	ProfessionalExperience string               `json:"professionalExperience,omitempty" bson:"professionalExperience,omitempty"`
 	Language               []string             `json:"language,omitempty" bson:"language,omitempty"`
@@ -34,6 +34,7 @@ type User struct {
 	UserMentorRequest      string               `json:"userMentorRequest,omitempty" bson:"userMentorRequest,omitempty"`
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink,omitempty" bson:"meetingLink,omitempty"`
+	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate"`
 }
 
 type CountryDescription struct {
