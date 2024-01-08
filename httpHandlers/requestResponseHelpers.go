@@ -34,7 +34,8 @@ func writeSessionCookie(w http.ResponseWriter, name, value string, time time.Tim
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteDefaultMode,
+		SameSite: http.SameSiteNoneMode,
+		Domain:   "http://localhost:3000",
 	}
 	http.SetCookie(w, cookie)
 }

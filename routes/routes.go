@@ -59,7 +59,7 @@ func ConfigureCors(r *chi.Mux) {
 	corsConfig := cors.New(cors.Options{
 		AllowedOrigins:   strings.Split(os.Getenv("ALLOWED_ORIGINS"), ";"),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Set-Cookie"},
 		AllowCredentials: true,
 	})
 	r.Use(corsConfig.Handler)
