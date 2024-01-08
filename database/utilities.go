@@ -11,10 +11,12 @@ import (
 )
 
 const (
-	UserCollectionName        = "users"
-	SessionCollectionName     = "sessions"
-	ReviewCollectionName      = "reviews"
-	AuthSessionCollectionName = "authSessions"
+	UserCollectionName            = "users"
+	SessionCollectionName         = "sessions"
+	ReviewCollectionName          = "reviews"
+	AuthSessionCollectionName     = "authSessions"
+	ValuesForSelectCollectionName = "selectValues"
+	FieldInfoCollectionName       = "fieldInfo"
 )
 
 // todo get from database

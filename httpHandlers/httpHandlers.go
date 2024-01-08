@@ -157,7 +157,7 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
-	var userForExperienceUpdate *model.User
+	userForExperienceUpdate := &model.User{}
 	for _, entry := range userAfterUpdate.AreaOfExpertise {
 		userForExperienceUpdate.Experience += entry.Experience
 	}
