@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"oysterProject/database"
+	"oysterProject/emailNotifications"
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
@@ -214,6 +215,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database session insert error: "+err.Error())
 		return
 	}
+	go emailNotifications.SendSessionSetUpForMentorEmail(updatedSession)
 	writeJSONResponse(w, r, http.StatusCreated, updatedSession)
 }
 

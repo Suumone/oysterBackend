@@ -161,7 +161,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error inserting user into database")
 		return
 	}
-	go emailNotifications.SendUserRegisteredEmail(&user, "menteeRegistered")
+	go emailNotifications.SendUserRegisteredEmail(&user)
 
 	expiresAt := time.Now().Add(expirationTime)
 	sessionId, err := database.SaveAuthSession(&model.AuthSession{
@@ -245,7 +245,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return
 		}
-		go emailNotifications.SendUserRegisteredEmail(user, "userRegistered")
+		go emailNotifications.SendUserRegisteredEmail(user)
 	} else if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database search error: "+err.Error())
 		return

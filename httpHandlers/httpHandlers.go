@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/mail"
 	"oysterProject/database"
+	"oysterProject/emailNotifications"
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
@@ -131,7 +132,7 @@ func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, r, http.StatusOK, user)
 }
 
-func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
+func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	userSession := getUserSessionFromRequest(r)
 	if userSession == nil {
 		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
@@ -150,9 +151,8 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	//utils.NormalizeSocialLinks(&userForUpdate)
 
-	userAfterUpdate, err := database.UpdateUser(&userForUpdate, userSession.UserId)
+	userAfterUpdate, err := database.UpdateAndGetUser(&userForUpdate, userSession.UserId)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
@@ -161,7 +161,12 @@ func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
 	for _, entry := range userAfterUpdate.AreaOfExpertise {
 		userForExperienceUpdate.Experience += entry.Experience
 	}
-	userForExperienceUpdate, err = database.UpdateUser(userForExperienceUpdate, userSession.UserId)
+	if userAfterUpdate.IsNewUser == true {
+		userForExperienceUpdate.IsNewUser = false
+
+		go emailNotifications.SendUserFilledQuestionsEmail(userAfterUpdate)
+	}
+	userForExperienceUpdate, err = database.UpdateAndGetUser(userForExperienceUpdate, userSession.UserId)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return

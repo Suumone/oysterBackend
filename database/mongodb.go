@@ -255,8 +255,7 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 	}
 }
 
-func UpdateUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
-	user.IsNewUser = false
+func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
 	collection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": id}
 	updateOp := bson.M{"$set": user}
@@ -266,7 +265,7 @@ func UpdateUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	userAfterUpdate, err := GetUserWithImageByID(id)
+	userAfterUpdate, err := GetUserWithImageByID(id) //todo GetUserPictureByUserId
 	if err != nil {
 		return nil, err
 	}

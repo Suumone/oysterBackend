@@ -37,7 +37,7 @@ func ConfigureRoutes(r *chi.Mux) {
 
 	r.With(httpHandlers.AuthMiddleware).Route("/myProfile", func(r chi.Router) {
 		r.Get("/", httpHandlers.GetProfileByToken)
-		r.Post("/update", httpHandlers.UpdateProfileByToken)
+		r.Post("/update", httpHandlers.UpdateUserProfile)
 		r.Post("/updatePassword", httpHandlers.ChangePassword)
 		r.Get("/getCurrentState", httpHandlers.GetCurrentState)
 		r.Post("/updateCurrentState", httpHandlers.UpdateCurrentState)
