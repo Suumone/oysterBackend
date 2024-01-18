@@ -3,6 +3,7 @@ package httpHandlers
 import (
 	"encoding/json"
 	"github.com/go-chi/render"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 func parseJSONRequest(r *http.Request, payload interface{}) error {
 	err := json.NewDecoder(r.Body).Decode(payload)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Printf("Error parsing JSON request error(%s), body(%s):\n", err, r.Body)
 	}
 	return err
