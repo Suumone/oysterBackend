@@ -19,7 +19,7 @@ type User struct {
 	ProfessionalExperience string               `json:"professionalExperience" bson:"professionalExperience,omitempty"`
 	Language               []string             `json:"language,omitempty" bson:"language,omitempty"`
 	Skill                  []string             `json:"skill,omitempty" bson:"skill,omitempty"`
-	Experience             float32              `json:"-" bson:"experience,omitempty"`
+	Experience             int32                `json:"-" bson:"experience,omitempty"`
 	AreaOfExpertise        []AreaOfExpertise    `json:"areaOfExpertise,omitempty" bson:"areaOfExpertise,omitempty"`
 	CountryDescription     []CountryDescription `json:"countryDescription,omitempty" bson:"countryDescription,omitempty"`
 	MentorsTopics          []MentorsTopics      `json:"mentorsTopics,omitempty" bson:"mentorsTopics,omitempty"`
@@ -52,8 +52,8 @@ type Price struct {
 }
 
 type AreaOfExpertise struct {
-	Area       string  `json:"area" bson:"area,omitempty"`
-	Experience float32 `json:"experience" bson:"experience,omitempty"`
+	Area       string `json:"area" bson:"area,omitempty"`
+	Experience int32  `json:"experience" bson:"experience,omitempty"`
 }
 
 type UserState struct {

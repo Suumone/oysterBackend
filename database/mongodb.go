@@ -348,11 +348,25 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 
 	if fieldType == "dropdown" && len(valuesFromDb) == 0 {
 		usersColl := GetCollection(UserCollectionName)
-		values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
-		if err != nil {
-			return nil, err
+		if fieldStorage == "areaOfExpertise" {
+			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			for i, _ := range values {
+				if len(values[i].(primitive.D)) == 2 {
+					values[i].(primitive.D)[1].Value = strconv.FormatInt(int64(values[i].(primitive.D)[1].Value.(int32)), 10)
+				}
+			}
+
+			fieldData["values"] = values
+		} else {
+			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
+			if err != nil {
+				return nil, err
+			}
+			fieldData["values"] = values
 		}
-		fieldData["values"] = values
 	}
 
 	return fieldData, nil
