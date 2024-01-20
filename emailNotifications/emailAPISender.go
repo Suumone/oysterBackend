@@ -6,26 +6,39 @@ import (
 	"log"
 	"os"
 	"oysterProject/model"
-	"time"
+	"strings"
 )
 
 const (
-	MenteeRegisteredTemplateID      = "d-be156416c7874548a5d40ab22c6c448f"
-	MentorRegisteredTemplateID      = "d-be156416c7874548a5d40ab22c6c448f"
-	MentorFilledQuestionsTemplateID = "d-acb26f6c4b9a41309e281021ebdafe77"
-	MenteeFilledQuestionsTemplateID = ""
-	SessionSetUpForMentorTemplateID = "d-e67f8b8a8373472089bfe585a2119388"
+	dateFormat                             = "02 Jan 2006"
+	timeFormat                             = "15:04"
+	menteeRegisteredTemplateID             = "d-06042ffe71e14c6fb68b7784fe6a8c01"
+	mentorRegisteredTemplateID             = "d-06042ffe71e14c6fb68b7784fe6a8c01"
+	mentorFilledQuestionsTemplateID        = "d-acb26f6c4b9a41309e281021ebdafe77"
+	menteeFilledQuestionsTemplateID        = "d-be156416c7874548a5d40ab22c6c448f"
+	mentorSessionCreatedTemplateID         = "d-e67f8b8a8373472089bfe585a2119388"
+	menteeSessionCreatedFreeTemplateID     = "d-747f16f016924f30ae6fa431df681ad2"
+	menteeSessionCreatedDonationTemplateID = "d-ce0dc32b002c446d9ef1e9e057bf4e31"
+	menteeSessionCreatedPaidTemplateID     = "d-13aec49e40c6406da7c73591c3423806"
+	menteeSessionConfirmedTemplateID       = "d-ae48b32f57c34243a9e6dfcc9f08dbba"
+	mentorSessionConfirmedTemplateID       = "d-734268aa40dd4916bde04cbde8e63bc9"
+	menteeSessionRescheduledTemplateID     = "d-ab0511265c0646d58acc823ba92a3376"
+	mentorSessionRescheduledTemplateID     = "d-e1bf34de616946f1afc738bd898901b0"
 )
 
-var client *sendgrid.Client
+var (
+	client    *sendgrid.Client
+	emailFrom = mail.NewEmail("The Oyster", "info@oystermentors.com")
+)
 
-func CreateMailClient() {
+func InitMailClient() {
 	client = sendgrid.NewSendClient(os.Getenv("SEND_GRID_KEY"))
 }
 
 func sendEmailMessage(message *mail.SGMailV3) {
 	response, err := client.Send(message)
 	if err != nil {
+		log.Println("Failed to send email:", err)
 		return
 	}
 
@@ -36,73 +49,91 @@ func sendEmailMessage(message *mail.SGMailV3) {
 	}
 }
 
-func SendUserRegisteredEmail(user *model.User) {
-	from := mail.NewEmail("The Oyster", "info@oystermentors.com")
-	to := mail.NewEmail("", user.Email)
-
-	//dynamicTemplateData := map[string]interface{}{
-	//	"name": "John Doe",
-	//}
-	personalization := mail.NewPersonalization()
-	//personalization.DynamicTemplateData = dynamicTemplateData
-	personalization.AddTos(to)
-
+func sendTemplateEmail(templateID, toName, toEmail string, dynamicTemplateData map[string]interface{}) {
 	message := mail.NewV3Mail()
-	if user.AsMentor {
-		message.SetTemplateID(MentorRegisteredTemplateID)
-	} else {
-		message.SetTemplateID(MenteeRegisteredTemplateID)
-	}
+	personalization := mail.NewPersonalization()
+	personalization.DynamicTemplateData = dynamicTemplateData
+	personalization.AddTos(mail.NewEmail(toName, toEmail))
+	personalization.SetHeader("Importance", "high")
+
+	message.SetTemplateID(templateID)
 	message.AddPersonalizations(personalization)
-	message.SetFrom(from)
+	message.SetFrom(emailFrom)
 
 	sendEmailMessage(message)
 }
 
+func SendUserRegisteredEmail(user *model.User) {
+	templateID := menteeRegisteredTemplateID
+	if user.AsMentor {
+		templateID = mentorRegisteredTemplateID
+	}
+
+	sendTemplateEmail(templateID, "", user.Email, nil)
+}
+
 func SendUserFilledQuestionsEmail(user *model.User) {
-	from := mail.NewEmail("The Oyster", "info@oystermentors.com")
-	to := mail.NewEmail(user.Username, user.Email)
+	templateID := menteeFilledQuestionsTemplateID
+	if user.AsMentor {
+		templateID = mentorFilledQuestionsTemplateID
+	}
 
 	dynamicTemplateData := map[string]interface{}{
 		"name": user.Username,
 	}
-	personalization := mail.NewPersonalization()
-	personalization.DynamicTemplateData = dynamicTemplateData
-	personalization.AddTos(to)
-
-	message := mail.NewV3Mail()
-	if user.AsMentor {
-		templateID := MentorFilledQuestionsTemplateID
-		message.SetTemplateID(templateID)
-	} else {
-		templateID := MenteeFilledQuestionsTemplateID
-		message.SetTemplateID(templateID)
-	}
-	message.AddPersonalizations(personalization)
-	message.SetFrom(from)
-
-	sendEmailMessage(message)
+	sendTemplateEmail(templateID, user.Username, user.Email, dynamicTemplateData)
 }
 
-func SendSessionSetUpForMentorEmail(session *model.SessionResponse) {
-	from := mail.NewEmail("The Oyster", "info@oystermentors.com")
-	to := mail.NewEmail(session.Mentor.Name, session.Mentor.Name)
-
+func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 	dynamicTemplateData := map[string]interface{}{
 		"mentorName":  session.Mentor.Name,
 		"menteeName":  session.Mentee.Name,
-		"sessionDate": session.SessionTimeStart.Format(time.DateOnly),
-		"sessionTime": session.SessionTimeStart.Format(time.TimeOnly),
+		"sessionDate": session.SessionTimeStart.Format(dateFormat),
+		"sessionTime": session.SessionTimeStart.Format(timeFormat),
+		"price":       session.PaymentDetails,
 	}
-	personalization := mail.NewPersonalization()
-	personalization.DynamicTemplateData = dynamicTemplateData
-	personalization.AddTos(to)
-	personalization.SetHeader("Importance", "high")
+	sendTemplateEmail(mentorSessionCreatedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
+	var templateId string
+	if strings.EqualFold(session.PaymentDetails, "free") {
+		templateId = menteeSessionCreatedFreeTemplateID
+	} else if strings.EqualFold(session.PaymentDetails, "donation") {
+		templateId = menteeSessionCreatedDonationTemplateID
+	} else {
+		templateId = menteeSessionCreatedPaidTemplateID
+	}
+	sendTemplateEmail(templateId, session.Mentee.Name, session.Mentee.Email, dynamicTemplateData)
+}
 
-	message := mail.NewV3Mail()
-	message.SetTemplateID(SessionSetUpForMentorTemplateID)
-	message.AddPersonalizations(personalization)
-	message.SetFrom(from)
+func SendSessionConfirmedEmail(session *model.SessionResponse) {
+	dynamicTemplateData := map[string]interface{}{
+		"mentorName":  session.Mentor.Name,
+		"menteeName":  session.Mentee.Name,
+		"sessionDate": session.SessionTimeStart.Format(dateFormat),
+		"sessionTime": session.SessionTimeStart.Format(timeFormat),
+	}
+	sendTemplateEmail(mentorSessionConfirmedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
+	sendTemplateEmail(menteeSessionConfirmedTemplateID, session.Mentee.Name, session.Mentee.Email, dynamicTemplateData)
+}
 
-	sendEmailMessage(message)
+func SendSessionRescheduledEmail(session *model.SessionResponse) {
+	dynamicTemplateData := map[string]interface{}{
+		"mentorName":  session.Mentor.Name,
+		"menteeName":  session.Mentee.Name,
+		"sessionDate": session.NewSessionTimeStart.Format(dateFormat),
+		"sessionTime": session.NewSessionTimeStart.Format(timeFormat),
+	}
+
+	templateID := mentorSessionRescheduledTemplateID
+	toName := session.Mentor.Name
+	toEmail := session.Mentor.Email
+
+	if session.SessionStatus == model.ReschedulingByMentee {
+		templateID = menteeSessionRescheduledTemplateID
+		toName = session.Mentee.Name
+		toEmail = session.Mentee.Email
+	} else {
+		log.Printf("Wrong session status to send rescheduled email. Session id:%s, status:%s", session.SessionId, session.SessionStatus)
+		return
+	}
+	sendTemplateEmail(templateID, toName, toEmail, dynamicTemplateData)
 }

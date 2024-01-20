@@ -61,14 +61,12 @@ func GetMentorListFilters(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		listOfFilters, err = database.GetFiltersByNames(requestParams)
 		if err != nil {
-			log.Printf("Error getting fields filter: %v\n", err)
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting fields filter")
 			return
 		}
 	} else if err == io.EOF {
 		listOfFilters, err = database.GetListOfFilterFields()
 		if err != nil {
-			log.Printf("Error getting fields filter: %v\n", err)
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting fields filter")
 			return
 		}

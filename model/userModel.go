@@ -29,7 +29,7 @@ type User struct {
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
-	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
+	AsMentor               bool                 `json:"asMentor" bson:"asMentor"`
 	UserImage              *UserImage           `json:"userImage,omitempty" bson:"userImage,omitempty"`
 	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
@@ -64,6 +64,7 @@ type UserState struct {
 type UserImage struct {
 	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
 	Name      string             `json:"name,omitempty" bson:"name,omitempty"`
+	Email     string             `json:"-" bson:"email"`
 	Image     []byte             `json:"image" bson:"image"`
 	Extension string             `json:"extension" bson:"extension"`
 }

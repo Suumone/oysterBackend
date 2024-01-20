@@ -19,7 +19,7 @@ func main() {
 	}
 	defer database.CloseMongoDBConnection()
 	schedulerJobs.StartJobs()
-	emailNotifications.CreateMailClient()
+	emailNotifications.InitMailClient()
 
 	r := chi.NewRouter()
 	routes.ConfigureCors(r)

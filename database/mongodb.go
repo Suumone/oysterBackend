@@ -280,6 +280,7 @@ func GetListOfFilterFields() ([]map[string]interface{}, error) {
 	defer cancel()
 	cursor, err := filterColl.Find(ctx, bson.D{})
 	if err != nil {
+		log.Printf("Error executing filter fields search in db: %v", err)
 		return nil, err
 	}
 
@@ -350,6 +351,7 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 		if fieldStorage == "areaOfExpertise" {
 			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
 			if err != nil {
+				log.Printf("Error executing distinct search for areaOfExpertise in db: %v", err)
 				return nil, err
 			}
 			for i, _ := range values {
@@ -362,6 +364,7 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 		} else {
 			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
 			if err != nil {
+				log.Printf("Error executing distinct search in db: %v", err)
 				return nil, err
 			}
 			fieldData["values"] = values

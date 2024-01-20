@@ -97,7 +97,7 @@ func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
-	bookedSessions, err := database.GetUserUpcomingSessions(user.Id, true)
+	bookedSessions, err := database.GetUserUpcomingSessions(user.Id, true) //todo in channel
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error user sessions info from database")
 		return
@@ -215,7 +215,7 @@ func CreateSession(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database session insert error: "+err.Error())
 		return
 	}
-	go emailNotifications.SendSessionSetUpForMentorEmail(updatedSession)
+	go emailNotifications.SendSessionWasCreatedEmail(updatedSession)
 	writeJSONResponse(w, r, http.StatusCreated, updatedSession)
 }
 
@@ -313,6 +313,8 @@ func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error during session update")
 	}
+
+	go emailNotifications.SendSessionRescheduledEmail(updatedSession)
 	writeJSONResponse(w, r, http.StatusOK, updatedSession)
 }
 
@@ -331,12 +333,13 @@ func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusBadRequest, "Session id wasn't provided")
 		return
 	}
-	updateSession, err := database.ConfirmSession(sessionId)
+	updatedSession, err := database.ConfirmSession(sessionId)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error during session confirm")
 		return
 	}
-	writeJSONResponse(w, r, http.StatusOK, updateSession)
+	go emailNotifications.SendSessionConfirmedEmail(updatedSession)
+	writeJSONResponse(w, r, http.StatusOK, updatedSession)
 }
 
 func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
