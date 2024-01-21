@@ -24,7 +24,7 @@ func CreateSession(session model.Session) (*model.SessionResponse, error) {
 	}
 	session.SessionId = doc.InsertedID.(primitive.ObjectID)
 	log.Printf("Session(menteeId: %s, mentorId: %s, sessionId:%s) created successfully\n", session.MenteeId, session.MentorId, doc.InsertedID)
-	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
+	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId}) //todo in channel
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func GetUserUpcomingSessions(userId primitive.ObjectID, asMentor bool) ([]*model
 	defer cancel()
 	collection := GetCollection(SessionCollectionName)
 	filter := buildSessionFilter(userId, asMentor)
-	filter["sessionStatus"] = bson.M{"lte": model.Confirmed}
+	filter["sessionStatus"] = bson.M{"$lte": model.Confirmed}
 
 	cursor, err := collection.Find(ctx, filter)
 	if errors.Is(err, mongo.ErrNoDocuments) {
