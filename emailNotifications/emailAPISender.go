@@ -12,10 +12,9 @@ import (
 const (
 	dateFormat                             = "02 Jan 2006"
 	timeFormat                             = "15:04"
-	menteeRegisteredTemplateID             = "d-06042ffe71e14c6fb68b7784fe6a8c01"
-	mentorRegisteredTemplateID             = "d-06042ffe71e14c6fb68b7784fe6a8c01"
 	mentorFilledQuestionsTemplateID        = "d-acb26f6c4b9a41309e281021ebdafe77"
 	menteeFilledQuestionsTemplateID        = "d-be156416c7874548a5d40ab22c6c448f"
+	mentorWasApprovedTemplateID            = "d-06042ffe71e14c6fb68b7784fe6a8c01"
 	mentorSessionCreatedTemplateID         = "d-e67f8b8a8373472089bfe585a2119388"
 	menteeSessionCreatedFreeTemplateID     = "d-747f16f016924f30ae6fa431df681ad2"
 	menteeSessionCreatedDonationTemplateID = "d-ce0dc32b002c446d9ef1e9e057bf4e31"
@@ -61,15 +60,6 @@ func sendTemplateEmail(templateID, toName, toEmail string, dynamicTemplateData m
 	message.SetFrom(emailFrom)
 
 	sendEmailMessage(message)
-}
-
-func SendUserRegisteredEmail(user *model.User) {
-	templateID := menteeRegisteredTemplateID
-	if user.AsMentor {
-		templateID = mentorRegisteredTemplateID
-	}
-
-	sendTemplateEmail(templateID, "", user.Email, nil)
 }
 
 func SendUserFilledQuestionsEmail(user *model.User) {

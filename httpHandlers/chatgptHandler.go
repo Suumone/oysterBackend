@@ -104,7 +104,7 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 	} else {
 		go database.UpdateMentorRequest(requestPayload.Request, userSession.UserId)
 
-		mentorsFromChatgpt, err := sendRequestToChatgpt(requestPayload.Request, userSession.UserId)
+		mentorsFromChatgpt, err := SendRequestToChatgpt(requestPayload.Request, userSession.UserId)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Error searching for mentors")
 			return
@@ -113,7 +113,7 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sendRequestToChatgpt(request string, userId primitive.ObjectID) ([]model.MentorForRequest, error) {
+func SendRequestToChatgpt(request string, userId primitive.ObjectID) ([]model.MentorForRequest, error) {
 	mentors, err := database.GetMentors(nil, primitive.NilObjectID)
 	if err != nil {
 		return nil, errors.New("error getting mentors from database")
