@@ -40,6 +40,10 @@ func writeSessionCookie(w http.ResponseWriter, name, value string, time time.Tim
 	http.SetCookie(w, cookie)
 }
 
+func writeHeaderValue(w http.ResponseWriter, name, value string) {
+	w.Header().Set(name, value)
+}
+
 func deleteCookie(w http.ResponseWriter, name string) {
 	cookie := http.Cookie{
 		Name:    name,
