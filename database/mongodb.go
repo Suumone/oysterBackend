@@ -205,7 +205,11 @@ func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
-	idToFind, _ := primitive.ObjectIDFromHex(id)
+	idToFind, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		log.Printf("GetMentorReviewsByID: Failed to convert mentor id(%s): %v", id, err)
+		return nil, err
+	}
 
 	mentorListPipeline := GetMentorReviewsPipeline(idToFind)
 	cursor, err := usersColl.Aggregate(ctx, mentorListPipeline)
@@ -348,27 +352,12 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 
 	if fieldType == "dropdown" && len(valuesFromDb) == 0 {
 		usersColl := GetCollection(UserCollectionName)
-		if fieldStorage == "areaOfExpertise" {
-			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
-			if err != nil {
-				log.Printf("Error executing distinct search for areaOfExpertise in db: %v", err)
-				return nil, err
-			}
-			for i, _ := range values {
-				if len(values[i].(primitive.D)) == 2 {
-					values[i].(primitive.D)[1].Value = strconv.FormatInt(int64(values[i].(primitive.D)[1].Value.(int32)), 10)
-				}
-			}
-
-			fieldData["values"] = values
-		} else {
-			values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
-			if err != nil {
-				log.Printf("Error executing distinct search in db: %v", err)
-				return nil, err
-			}
-			fieldData["values"] = values
+		values, err := usersColl.Distinct(context.TODO(), fieldStorage, bson.D{})
+		if err != nil {
+			log.Printf("Error executing distinct search in db: %v", err)
+			return nil, err
 		}
+		fieldData["values"] = values
 	}
 
 	return fieldData, nil

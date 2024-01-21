@@ -170,6 +170,11 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(userForUpdate.UserMentorRequest) > 0 {
+		go func() {
+			_, _ = SendRequestToChatgpt(userForUpdate.UserMentorRequest, userSession.UserId)
+		}()
+	}
 	writeJSONResponse(w, r, http.StatusOK, userForExperienceUpdate)
 }
 
