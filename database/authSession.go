@@ -37,18 +37,13 @@ func UpdateAuthSession(sessionId primitive.ObjectID, expiryTime time.Time) (*mod
 	return &result, nil
 }
 
-func FindAuthSession(sessionId string) (*model.AuthSession, bool) {
+func FindAuthSession(sessionId primitive.ObjectID) (*model.AuthSession, bool) {
 	collection := GetCollection(AuthSessionCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	sessionIdObj, err := primitive.ObjectIDFromHex(sessionId)
-	if err != nil {
-		log.Printf("Failed to convert string identifier to object(%s): %v\n", sessionId, err)
-		return nil, false
-	}
-	filter := bson.M{"_id": sessionIdObj}
+	filter := bson.M{"_id": sessionId}
 	var s model.AuthSession
-	err = collection.FindOne(ctx, filter).Decode(&s)
+	err := collection.FindOne(ctx, filter).Decode(&s)
 	if err != nil {
 		log.Printf("Auth session was not found(%s): %v\n", sessionId, err)
 		return nil, false

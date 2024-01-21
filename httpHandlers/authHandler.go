@@ -28,6 +28,7 @@ const (
 	expirationTime        = 30 * 24 * time.Hour
 	oauthCookieExpiration = 365 * 24 * time.Hour
 	sessionCookieName     = "sessionId"
+	SessionHeaderName     = "AuthSessionId"
 	oauthStateCookieName  = "oauthState"
 )
 
@@ -52,19 +53,18 @@ func getUserSessionFromRequest(r *http.Request) *model.AuthSession {
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(sessionCookieName)
+		sessionIdValue := r.Header.Get(SessionHeaderName)
+		sessionId, err := primitive.ObjectIDFromHex(sessionIdValue)
 		if err != nil {
-			if errors.Is(err, http.ErrNoCookie) {
-				writeMessageResponse(w, r, http.StatusUnauthorized, "Missed auth session id")
-				return
-			}
-			writeMessageResponse(w, r, http.StatusBadRequest, err.Error())
+			writeMessageResponse(w, r, http.StatusUnauthorized, "Missed auth session id")
 			return
 		}
-		sessionId, err := primitive.ObjectIDFromHex(c.Value)
-		if err != nil {
-
+		_, ok := database.FindAuthSession(sessionId)
+		if !ok {
+			writeMessageResponse(w, r, http.StatusUnauthorized, "User unauthorized")
+			return
 		}
+
 		expiresAt := time.Now().Add(expirationTime)
 		userSession, err := database.UpdateAuthSession(sessionId, expiresAt)
 		if err != nil {
@@ -73,7 +73,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), "userSession", userSession)
-		writeSessionCookie(w, sessionCookieName, userSession.SessionId.Hex(), expiresAt)
+		writeHeaderValue(w, SessionHeaderName, userSession.SessionId.Hex())
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -108,7 +108,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
+	writeHeaderValue(w, SessionHeaderName, sessionId)
 	writeMessageResponse(w, r, http.StatusOK, "Sign in successful")
 }
 
@@ -124,7 +124,6 @@ func SignOut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleteCookie(w, sessionCookieName)
 	writeMessageResponse(w, r, http.StatusOK, "Sign out successful")
 }
 
@@ -173,7 +172,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
+	writeHeaderValue(w, SessionHeaderName, sessionId)
 	writeMessageResponse(w, r, http.StatusOK, "Sign up successful")
 }
 
@@ -261,7 +260,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeSessionCookie(w, sessionCookieName, sessionId, expiresAt)
+	writeHeaderValue(w, SessionHeaderName, sessionId)
 	writeMessageResponse(w, r, http.StatusOK, "Sign up successful")
 }
 
@@ -299,6 +298,6 @@ func RefreshAuthSession(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error updating auth session")
 		return
 	}
-	writeSessionCookie(w, sessionCookieName, userSession.SessionId.Hex(), expiresAt)
+	writeHeaderValue(w, SessionHeaderName, userSession.SessionId.Hex())
 	writeMessageResponse(w, r, http.StatusOK, "Auth session updated successful")
 }
