@@ -27,7 +27,7 @@ const (
 
 var (
 	client    *sendgrid.Client
-	emailFrom = mail.NewEmail("The Oyster", "info@oystermentors.com")
+	emailFrom = mail.NewEmail("Oyster", "info@oystermentors.com")
 )
 
 func InitMailClient() {
