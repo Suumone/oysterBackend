@@ -150,6 +150,9 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	mentorRequest := userForUpdate.UserMentorRequest
+	userForUpdate.UserMentorRequest = ""
+
 	userAfterUpdate, err := database.UpdateAndGetUser(&userForUpdate, userSession.UserId)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
@@ -170,11 +173,12 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(userForUpdate.UserMentorRequest) > 0 {
+	if len(mentorRequest) > 0 {
 		go func() {
 			_, _ = SendRequestToChatgpt(userForUpdate.UserMentorRequest, userSession.UserId)
 		}()
 	}
+	userForExperienceUpdate.UserMentorRequest = mentorRequest
 	writeJSONResponse(w, r, http.StatusOK, userForExperienceUpdate)
 }
 
