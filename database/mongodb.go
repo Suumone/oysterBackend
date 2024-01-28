@@ -628,6 +628,23 @@ func GetBestMentors(userId primitive.ObjectID) ([]*model.User, error) {
 		}
 		result = append(result, &user)
 	}
+	var userIds []primitive.ObjectID
+	for _, user := range result {
+		userIds = append(userIds, user.Id)
+	}
+	usersWithImages, err := GetUserImages(userIds)
+	if err != nil {
+		log.Printf("GetBestMentors: Failed to get user images: %v", err)
+		return nil, err
+	}
+	for _, userImage := range usersWithImages {
+		for i, user := range result {
+			if userImage.UserId == user.Id {
+				result[i].UserImage = userImage
+			}
+		}
+	}
+
 	return result, nil
 }
 
