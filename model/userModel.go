@@ -29,12 +29,12 @@ type User struct {
 	IsNewUser              bool                 `json:"isNewUser" bson:"isNewUser"`
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
-	AsMentor               bool                 `json:"asMentor" bson:"asMentor"`
+	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
 	UserImage              *UserImage           `json:"userImage,omitempty" bson:"userImage,omitempty"`
 	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
-	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate"`
+	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate,omitempty"`
 }
 
 type CountryDescription struct {
