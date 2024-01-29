@@ -73,4 +73,5 @@ type Availability struct {
 	Weekday  string `json:"weekday" bson:"weekday"`
 	TimeFrom string `json:"timeFrom" bson:"timeFrom"`
 	TimeTo   string `json:"timeTo" bson:"timeTo"`
+	TimeZone string `json:"timeZone" bson:"timeZone"`
 }
