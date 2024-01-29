@@ -2,38 +2,54 @@ package httpHandlers
 
 import (
 	"encoding/json"
+	"github.com/go-chi/render"
+	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
-func ParseJSONRequest(r *http.Request, payload interface{}) error {
+func parseJSONRequest(r *http.Request, payload interface{}) error {
 	err := json.NewDecoder(r.Body).Decode(payload)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		log.Printf("Error parsing JSON request error(%s), body(%s):\n", err, r.Body)
 	}
 	return err
 }
 
-func WriteMessageResponse(w http.ResponseWriter, status int, message string) {
-	w.WriteHeader(status)
-	writeResponse(w, message)
+func writeMessageResponse(w http.ResponseWriter, r *http.Request, status int, message string) {
+	render.Status(r, status)
+	render.PlainText(w, r, message)
 }
 
-func WriteJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.Printf("Error encoding JSON response:%v", err)
+func writeJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
+	render.Status(r, status)
+	render.JSON(w, r, payload)
+}
+
+func writeSessionCookie(w http.ResponseWriter, name, value string, time time.Time) {
+	cookie := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Expires:  time,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode,
 	}
+	http.SetCookie(w, cookie)
 }
 
-func writeResponse(w http.ResponseWriter, message string) {
-	_, err := w.Write([]byte(message))
-	if err != nil {
-		log.Printf("Error writing response:%v\n", err)
+func writeHeaderValue(w http.ResponseWriter, name, value string) {
+	w.Header().Set(name, value)
+}
+
+func deleteCookie(w http.ResponseWriter, name string) {
+	cookie := http.Cookie{
+		Name:    name,
+		MaxAge:  -1,
+		Path:    "/",
+		Expires: time.Now().Add(-expirationTime),
 	}
-}
-
-func handleInvalidTokenResponse(w http.ResponseWriter) {
-	WriteMessageResponse(w, http.StatusForbidden, "Invalid token")
+	http.SetCookie(w, &cookie)
 }

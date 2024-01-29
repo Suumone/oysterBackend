@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"oysterProject/database"
+	"oysterProject/emailNotifications"
 	"oysterProject/routes"
 	"oysterProject/schedulerJobs"
 )
@@ -17,7 +18,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer database.CloseMongoDBConnection()
-	schedulerJobs.StartStatusCalculation()
+	schedulerJobs.StartJobs()
+	emailNotifications.InitMailClient()
 
 	r := chi.NewRouter()
 	routes.ConfigureCors(r)

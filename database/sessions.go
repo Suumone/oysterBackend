@@ -24,11 +24,11 @@ func CreateSession(session model.Session) (*model.SessionResponse, error) {
 	}
 	session.SessionId = doc.InsertedID.(primitive.ObjectID)
 	log.Printf("Session(menteeId: %s, mentorId: %s, sessionId:%s) created successfully\n", session.MenteeId, session.MentorId, doc.InsertedID)
-	mentorMenteeInfo, err := GetUsersWithImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
+	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId}) //todo in channel
 	if err != nil {
 		return nil, err
 	}
-	return createSessionResponse(mentorMenteeInfo, session)
+	return createSessionResponse(mentorMenteeInfo, &session)
 }
 
 func GetSession(sessionId string) (*model.SessionResponse, error) {
@@ -44,14 +44,14 @@ func GetSession(sessionId string) (*model.SessionResponse, error) {
 		return nil, err
 	}
 
-	mentorMenteeInfo, err := GetUsersWithImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
+	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
 	if err != nil {
 		return nil, err
 	}
-	return createSessionResponse(mentorMenteeInfo, session)
+	return createSessionResponse(mentorMenteeInfo, &session)
 }
 
-func createSessionResponse(mentorMenteeInfo []*model.UserImage, session model.Session) (*model.SessionResponse, error) {
+func createSessionResponse(mentorMenteeInfo []*model.UserImage, session *model.Session) (*model.SessionResponse, error) {
 	var mentor, mentee *model.UserImage
 
 	for _, userImage := range mentorMenteeInfo {
@@ -67,7 +67,7 @@ func createSessionResponse(mentorMenteeInfo []*model.UserImage, session model.Se
 			break
 		}
 	}
-	utils.SetStatusText(&session)
+	utils.SetStatusText(session)
 
 	return &model.SessionResponse{
 		SessionId:           session.SessionId,
@@ -110,7 +110,7 @@ func GetUserUpcomingSessions(userId primitive.ObjectID, asMentor bool) ([]*model
 	defer cancel()
 	collection := GetCollection(SessionCollectionName)
 	filter := buildSessionFilter(userId, asMentor)
-	filter["sessionStatus"] = bson.M{"lte": model.Confirmed}
+	filter["sessionStatus"] = bson.M{"$lte": model.Confirmed}
 
 	cursor, err := collection.Find(ctx, filter)
 	if errors.Is(err, mongo.ErrNoDocuments) {
@@ -141,12 +141,12 @@ func decodeSessions(cursor *mongo.Cursor, withImage bool) ([]*model.SessionRespo
 		var mentorMenteeInfo []*model.UserImage
 		if withImage {
 			var err error
-			mentorMenteeInfo, err = GetUsersWithImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
+			mentorMenteeInfo, err = GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
 			if err != nil {
 				return nil, err
 			}
 		}
-		sessionResponse, err := createSessionResponse(mentorMenteeInfo, session)
+		sessionResponse, err := createSessionResponse(mentorMenteeInfo, &session)
 		if err != nil {
 			return nil, err
 		}
@@ -192,11 +192,14 @@ func ConfirmSession(sessionId string) (*model.SessionResponse, error) {
 	return updateSessionAndPrepareResponse(filter, updateOp)
 }
 
-func CancelSession(sessionId, userId string) (*model.SessionResponse, error) {
-	sessionIdObj, _ := primitive.ObjectIDFromHex(sessionId)
-	filter := bson.M{"_id": sessionIdObj}
+func CancelSession(sessionId, userId primitive.ObjectID) (*model.SessionResponse, error) {
+	filter := bson.M{"_id": sessionId}
 
-	user := GetUserWithImageByID(userId)
+	user, err := GetUserByID(userId)
+	if err != nil {
+		log.Printf("CancelSession: Failed to find user(%s) err: %v\n", userId, err)
+		return nil, err
+	}
 	var updateOp bson.M
 	if user.AsMentor {
 		updateOp = bson.M{"$set": bson.M{"sessionStatus": model.CanceledByMentor}}
@@ -212,11 +215,11 @@ func updateSessionAndPrepareResponse(filter bson.M, updateOp bson.M) (*model.Ses
 	if err != nil {
 		return nil, err
 	}
-	mentorMenteeInfo, err := GetUsersWithImages([]primitive.ObjectID{updatedSession.MentorId, updatedSession.MenteeId})
+	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{updatedSession.MentorId, updatedSession.MenteeId})
 	if err != nil {
 		return nil, err
 	}
-	return createSessionResponse(mentorMenteeInfo, updatedSession)
+	return createSessionResponse(mentorMenteeInfo, &updatedSession)
 }
 
 func updateSession(filter bson.M, updateOp bson.M) (model.Session, error) {

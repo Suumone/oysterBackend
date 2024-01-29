@@ -2,191 +2,184 @@ package httpHandlers
 
 import (
 	"errors"
-	"github.com/golang-jwt/jwt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io"
 	"log"
 	"net/http"
 	"net/mail"
 	"oysterProject/database"
+	"oysterProject/emailNotifications"
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
-	"strings"
 )
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	users, err := database.GetMentors(queryParameters, userId)
+	users, err := database.GetMentors(queryParameters, userSession.UserId)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
-			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")
+			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
 			return
 		} else {
-			WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentors from database")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting mentors from database")
 			return
-		}
-	}
-	for i, user := range users {
-		if user.ProfileImageId.Hex() != "" {
-			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
-			if errors.Is(err, utils.UserImageNotFound) {
-				continue
-			} else if err != nil {
-				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
-				return
-			}
 		}
 	}
 
-	WriteJSONResponse(w, http.StatusOK, users)
+	var usersIdsObj []primitive.ObjectID
+	for _, user := range users {
+		usersIdsObj = append(usersIdsObj, user.Id)
+	}
+	usersWithImages, err := database.GetUserImages(usersIdsObj)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting image from database for mentors")
+		return
+	}
+	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
+	for _, userImage := range usersWithImages {
+		userImagesMap[userImage.UserId] = userImage
+	}
+	for i, user := range users {
+		if userImage, ok := userImagesMap[user.Id]; ok {
+			users[i].UserImage = userImage
+		}
+	}
+
+	writeJSONResponse(w, r, http.StatusOK, users)
 }
 
 func GetMentorListFilters(w http.ResponseWriter, r *http.Request) {
 	var listOfFilters []map[string]interface{}
 	var requestParams model.RequestParams
-	err := ParseJSONRequest(r, &requestParams)
+	err := parseJSONRequest(r, &requestParams)
 	if err == nil {
 		listOfFilters, err = database.GetFiltersByNames(requestParams)
 		if err != nil {
-			log.Printf("Error getting fields filter: %v\n", err)
-			WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting fields filter")
 			return
 		}
 	} else if err == io.EOF {
 		listOfFilters, err = database.GetListOfFilterFields()
 		if err != nil {
-			log.Printf("Error getting fields filter: %v\n", err)
-			WriteMessageResponse(w, http.StatusInternalServerError, "Error getting fields filter")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting fields filter")
 			return
 		}
 	} else {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, listOfFilters)
+	writeJSONResponse(w, r, http.StatusOK, listOfFilters)
 }
 
 func GetMentor(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
+	idToFind, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		log.Printf("GetMentor: error converting id to objectId: %v\n", err)
+		writeMessageResponse(w, r, http.StatusBadRequest, "Invalid id")
+	}
 
-	mentor := database.GetUserWithImageByID(id)
-	if utils.IsEmptyStruct(mentor) {
-		WriteMessageResponse(w, http.StatusNotFound, "Mentor not found")
+	mentor, err := database.GetUserWithImageByID(idToFind)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusNotFound, "Mentor not found")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, mentor)
+	writeJSONResponse(w, r, http.StatusOK, mentor)
 }
 
 func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
-		userWithReviews := database.GetMentorReviewsByID(mentorId)
-		if utils.IsEmptyStruct(userWithReviews) {
-			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
+		userWithReviews, err := database.GetMentorReviewsByID(mentorId)
+		if err != nil {
+			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
 		}
-		WriteJSONResponse(w, http.StatusOK, userWithReviews)
+		writeJSONResponse(w, r, http.StatusOK, userWithReviews)
 	} else {
-		reviews := database.GetReviewsForFrontPage()
-		if utils.IsEmptyStruct(reviews) {
-			WriteMessageResponse(w, http.StatusNotFound, "Reviews not found")
+		reviews, err := database.GetReviewsForFrontPage()
+		if err != nil {
+			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
 		}
 
-		WriteJSONResponse(w, http.StatusOK, reviews)
+		writeJSONResponse(w, r, http.StatusOK, reviews)
 	}
 }
 
 func GetProfileByToken(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 
-	user := database.GetUserWithImageByID(userId)
-	if utils.IsEmptyStruct(user) {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+	user, err := database.GetUserWithImageByID(userSession.UserId)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, user)
+	writeJSONResponse(w, r, http.StatusOK, user)
 }
 
-func getUserByID(userId string) (model.User, error) {
-	user := database.GetUserWithImageByID(userId)
-	if utils.IsEmptyStruct(user) {
-		return model.User{}, errors.New("user not found")
-	}
-	return user, nil
-}
-
-func UpdateProfileByToken(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 
 	var userForUpdate model.User
-	if err := ParseJSONRequest(r, &userForUpdate); err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from request")
+	if err := parseJSONRequest(r, &userForUpdate); err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
 		return
 	}
 	if userForUpdate.Email != "" {
-		_, err = mail.ParseAddress(userForUpdate.Email)
+		_, err := mail.ParseAddress(userForUpdate.Email)
 		if err != nil {
-			WriteMessageResponse(w, http.StatusBadRequest, "Email is not valid")
+			writeMessageResponse(w, r, http.StatusBadRequest, "Email is not valid")
 			return
 		}
 	}
-	//utils.NormalizeSocialLinks(&userForUpdate)
 
-	userAfterUpdate, err := database.UpdateUser(userForUpdate, userId)
+	mentorRequest := userForUpdate.UserMentorRequest
+	userForUpdate.UserMentorRequest = ""
+
+	userAfterUpdate, err := database.UpdateAndGetUser(&userForUpdate, userSession.UserId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
-	var userForExperienceUpdate model.User
+	userForExperienceUpdate := &model.User{}
 	for _, entry := range userAfterUpdate.AreaOfExpertise {
 		userForExperienceUpdate.Experience += entry.Experience
 	}
-	userForExperienceUpdate, err = database.UpdateUser(userForExperienceUpdate, userId)
+	if userAfterUpdate.IsNewUser == true {
+		userForExperienceUpdate.IsNewUser = false
+
+		go emailNotifications.SendUserFilledQuestionsEmail(userAfterUpdate)
+	}
+	userForExperienceUpdate, err = database.UpdateAndGetUser(userForExperienceUpdate, userSession.UserId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 		return
 	}
 
-	WriteJSONResponse(w, http.StatusOK, userForExperienceUpdate)
-}
-
-func getUserIdFromToken(r *http.Request) (string, error) {
-	claims, err := getTokenClaimsFromRequest(r)
-	if err != nil {
-		return "", err
+	if len(mentorRequest) > 0 {
+		go func() {
+			_, _ = SendRequestToChatgpt(userForUpdate.UserMentorRequest, userSession.UserId)
+		}()
 	}
-	userId, _ := claims["id"].(string)
-	return userId, nil
-}
-
-func getTokenClaimsFromRequest(r *http.Request) (jwt.MapClaims, error) {
-	authToken := r.Header.Get("Authorization")
-	if authToken == "" {
-		return nil, errors.New("received empty token")
-	}
-	tokenStr := strings.Split(authToken, "Bearer ")[1]
-
-	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
-	return claims, err
+	userForExperienceUpdate.UserMentorRequest = mentorRequest
+	writeJSONResponse(w, r, http.StatusOK, userForExperienceUpdate)
 }
 
 func GetTopMentors(w http.ResponseWriter, r *http.Request) {
@@ -194,65 +187,76 @@ func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	users, err := database.GetTopMentors(queryParameters)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
-			WriteJSONResponse(w, http.StatusBadRequest, "Error parsing offset and limit")
+			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
 			return
 		} else {
-			WriteJSONResponse(w, http.StatusInternalServerError, "Error getting mentors from database")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting mentors from database")
 			return
 		}
+	} else if len(users) == 0 {
+		writeJSONResponse(w, r, http.StatusNotFound, users)
+		return
+	}
+
+	var usersIdsObj []primitive.ObjectID
+	for _, user := range users {
+		usersIdsObj = append(usersIdsObj, user.Id)
+	}
+	usersWithImages, err := database.GetUserImages(usersIdsObj)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error getting images from database for users")
+		return
+	}
+	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
+	for _, userImage := range usersWithImages {
+		userImagesMap[userImage.UserId] = userImage
 	}
 
 	for i, user := range users {
-		if user.ProfileImageId.Hex() != "" {
-			users[i].UserImage, err = database.GetUserPictureByUserId(user.Id.Hex())
-			if errors.Is(err, utils.UserImageNotFound) {
-				continue
-			} else if err != nil {
-				WriteJSONResponse(w, http.StatusInternalServerError, "Error getting image from database for user("+user.Id.Hex()+")")
-				return
-			}
+		if userImage, ok := userImagesMap[user.Id]; ok {
+			users[i].UserImage = userImage
 		}
 	}
-	WriteJSONResponse(w, http.StatusOK, users)
+	writeJSONResponse(w, r, http.StatusOK, users)
 }
 
 func GetCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
+		return
+	}
+	userState, err := database.GetCurrentState(userSession.UserId)
 	if err != nil {
-		handleInvalidTokenResponse(w)
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
-	userState := database.GetCurrentState(userId)
-	if utils.IsEmptyStruct(userState) {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
-		return
-	}
-	WriteJSONResponse(w, http.StatusOK, userState)
+	writeJSONResponse(w, r, http.StatusOK, userState)
 }
 
 func UpdateCurrentState(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	if err := database.UpdateUserState(userId); err != nil {
+	if err := database.UpdateUserState(userSession.UserId); err != nil {
 		if errors.Is(err, utils.UserIsNotMentor) {
-			WriteMessageResponse(w, http.StatusBadRequest, "Status update for mentors only")
+			writeMessageResponse(w, r, http.StatusBadRequest, "Status update for mentors only")
 			return
 		} else {
-			WriteMessageResponse(w, http.StatusInternalServerError, "Error updating user to MongoDB")
+			writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user to MongoDB")
 			return
 		}
 	}
-	WriteJSONResponse(w, http.StatusOK, "User state updated")
+	writeMessageResponse(w, r, http.StatusOK, "User state updated")
 }
 
 func GetListValues(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	listOfValues, err := database.GetValuesForSelect(queryParameters)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error reading values from database")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error reading values from database")
 	}
-	WriteJSONResponse(w, http.StatusOK, listOfValues)
+	writeJSONResponse(w, r, http.StatusOK, listOfValues)
 }

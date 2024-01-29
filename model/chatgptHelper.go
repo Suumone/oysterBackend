@@ -10,28 +10,17 @@ type ChatgptHttpPayload struct {
 }
 
 type MentorForRequest struct {
-	MentorId        string `json:"id"`
-	AreaOfExpertise []struct {
-		Area       string `json:"area"`
-		Experience int    `json:"experience"`
-	} `json:"areaOfExpertise"`
-	Company            string `json:"company"`
-	CountryDescription []struct {
-		Country     string `json:"country"`
-		Description string `json:"description"`
-	} `json:"countryDescription"`
-	Prices []struct {
-		Price string `json:"price"`
-	} `json:"prices"`
-	IndustryExpertise []string `json:"industryExpertise"`
-	JobTitle          string   `json:"jobTitle"`
-	Language          []string `json:"language"`
-	MentorsTopics     []struct {
-		Description string `json:"description"`
-		Topic       string `json:"topic"`
-	} `json:"mentorsTopics"`
-	Name        string     `json:"name"`
-	Skill       []string   `json:"skill"`
-	WelcomeText string     `json:"welcomeText"`
-	UserImage   *UserImage `json:"userImage"`
+	MentorId           string               `json:"id"`
+	AreaOfExpertise    []AreaOfExpertise    `json:"areaOfExpertise,omitemptyw"`
+	Company            string               `json:"company,omitempty"`
+	CountryDescription []CountryDescription `json:"countryDescription,omitempty"`
+	Prices             []Price              `json:"prices,omitempty"`
+	IndustryExpertise  []string             `json:"industryExpertise,omitempty"`
+	JobTitle           string               `json:"jobTitle,omitempty"`
+	Language           []string             `json:"language,omitempty"`
+	MentorsTopics      []MentorsTopics      `json:"mentorsTopics,omitempty"`
+	Name               string               `json:"name,omitempty"`
+	Skill              []string             `json:"skill,omitempty"`
+	WelcomeText        string               `json:"welcomeText,omitempty"`
+	UserImage          *UserImage           `json:"userImage,omitempty"`
 }

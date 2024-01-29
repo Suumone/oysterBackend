@@ -1,10 +1,12 @@
 package httpHandlers
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/exp/slices"
 	"log"
 	"net/http"
 	"oysterProject/database"
+	"oysterProject/emailNotifications"
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
@@ -18,31 +20,36 @@ const sessionDuration = 60 * time.Minute
 func GetUserAvailableWeekdays(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	userId := queryParameters.Get("id")
+	userIdObj, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Invalid id")
+		return
+	}
 	startDate, err := parseDateParameter(queryParameters.Get("from"))
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing date from")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing date from")
 		return
 	}
 
 	endDate, err := parseDateParameter(queryParameters.Get("to"))
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing date to")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing date to")
 		return
 	}
 
-	user, err := getUserByID(userId)
+	user, err := database.GetUserWithImageByID(userIdObj)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
 
 	if utils.IsEmptyStruct(user.Availability) {
-		WriteMessageResponse(w, http.StatusNotFound, "User does not have available timeslots")
+		writeMessageResponse(w, r, http.StatusNotFound, "User does not have available timeslots")
 		return
 	}
 
 	result := calculateAvailableWeekdays(user.Availability, startDate, endDate)
-	WriteJSONResponse(w, http.StatusOK, result)
+	writeJSONResponse(w, r, http.StatusOK, result)
 }
 
 func calculateAvailableWeekdays(availabilities []*model.Availability, startDate, endDate time.Time) []model.AvailableWeekday {
@@ -75,20 +82,24 @@ func getUniqueWeekdays(availabilities []*model.Availability) []time.Weekday {
 
 func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	userId := queryParameters.Get("id")
+	userId, err := primitive.ObjectIDFromHex(queryParameters.Get("id"))
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Invalid user id")
+		return
+	}
 	startDate, err := parseDateParameter(queryParameters.Get("date"))
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing date")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing date")
 		return
 	}
 	user, err := database.GetUserByID(userId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
-	bookedSessions, err := database.GetUserUpcomingSessions(user.Id, true)
+	bookedSessions, err := database.GetUserUpcomingSessions(user.Id, true) //todo in channel
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error user sessions info from database")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error user sessions info from database")
 		return
 	}
 
@@ -100,7 +111,7 @@ func GetUserAvailableSlots(w http.ResponseWriter, r *http.Request) {
 		startDate.Location(),
 	)
 	result := calculateAvailability(user.Availability, bookedSessions, startDate, endDate)
-	WriteJSONResponse(w, http.StatusOK, result)
+	writeJSONResponse(w, r, http.StatusOK, result)
 }
 
 func parseDateParameter(dateParam string) (time.Time, error) {
@@ -188,101 +199,123 @@ func parseHoursAndMinutes(timeStr string) (int, int) {
 }
 
 func CreateSession(w http.ResponseWriter, r *http.Request) {
-	var session model.Session
-	err := ParseJSONRequest(r, &session)
+	var mentorSession model.Session
+	err := parseJSONRequest(r, &mentorSession)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session create request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from session create request")
 		return
 	}
-	setSessionDetails(&session)
-	updatedSession, err := database.CreateSession(session)
+	err = setSessionDetails(&mentorSession)
 	if err != nil {
-		WriteJSONResponse(w, http.StatusInternalServerError, "Database session insert error: "+err.Error())
+		writeMessageResponse(w, r, http.StatusNotFound, "Mentor was not found in database: "+err.Error())
 		return
 	}
-	WriteJSONResponse(w, http.StatusCreated, updatedSession)
+	updatedSession, err := database.CreateSession(mentorSession)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database session insert error: "+err.Error())
+		return
+	}
+	go emailNotifications.SendSessionWasCreatedEmail(updatedSession)
+	writeJSONResponse(w, r, http.StatusCreated, updatedSession)
 }
 
-func setSessionDetails(session *model.Session) {
-	mentor := database.GetUserWithImageByID(session.MentorId.Hex())
+func setSessionDetails(session *model.Session) error {
+	mentor, err := database.GetUserByID(session.MentorId)
+	if err != nil {
+		log.Printf("CancelSession: Failed to find user(%s) err: %v\n", session.MentorId.Hex(), err)
+		return err
+	}
 	session.MeetingLink = mentor.MeetingLink
 	if mentor.Prices != nil {
 		session.PaymentDetails = mentor.Prices[0].Price
+	} else {
+		session.PaymentDetails = "free"
 	}
 	session.SessionStatus = model.PendingByMentor
 	sessionTimeEnd := (*session.SessionTimeStart).Add(60 * time.Minute)
 	session.SessionTimeEnd = &sessionTimeEnd
+	return nil
 }
 
 func GetSession(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	id := queryParameters.Get("id")
-	session, err := database.GetSession(id)
+	mentorSession, err := database.GetSession(id)
 	if err != nil {
-		WriteJSONResponse(w, http.StatusNotFound, "Session not found")
+		writeMessageResponse(w, r, http.StatusNotFound, "Session not found")
 		return
 	}
-	WriteJSONResponse(w, http.StatusCreated, session)
+	writeJSONResponse(w, r, http.StatusCreated, mentorSession)
 }
 
 func GetUserSessions(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	user, err := getUserByID(userId)
+	user, err := database.GetUserByID(userSession.UserId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusNotFound, "User not found")
+		writeMessageResponse(w, r, http.StatusNotFound, "User not found")
 		return
 	}
 
 	sessions, err := database.GetUserSessions(user.Id, user.AsMentor)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Error during search session")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error during search session")
 		return
 	}
 	sessionsResponse := groupSessionsByStatus(sessions)
-	WriteJSONResponse(w, http.StatusOK, sessionsResponse)
+	writeJSONResponse(w, r, http.StatusOK, sessionsResponse)
 }
 
 func groupSessionsByStatus(sessions []*model.SessionResponse) model.GroupedSessions {
 	groupedSessions := model.GroupedSessions{}
-	for _, session := range sessions {
+	for _, s := range sessions {
 		switch {
-		case session.SessionStatus < model.Confirmed:
-			groupedSessions.PendingSessions = append(groupedSessions.PendingSessions, session)
-		case session.SessionStatus == model.Confirmed:
-			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, session)
-		case session.SessionStatus > model.Confirmed:
-			groupedSessions.PastSessions = append(groupedSessions.PastSessions, session)
+		case s.SessionStatus < model.Confirmed:
+			groupedSessions.PendingSessions = append(groupedSessions.PendingSessions, s)
+		case s.SessionStatus == model.Confirmed:
+			groupedSessions.UpcomingSessions = append(groupedSessions.UpcomingSessions, s)
+		case s.SessionStatus > model.Confirmed:
+			groupedSessions.PastSessions = append(groupedSessions.PastSessions, s)
 		}
 	}
 	return groupedSessions
 }
 
 func RescheduleRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 
-	var session model.Session
-	err = ParseJSONRequest(r, &session)
+	var mentorSession model.Session
+	err := parseJSONRequest(r, &mentorSession)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from session reschedule request")
 		return
 	}
-	user := database.GetUserWithImageByID(userId)
-	sessionTimeEnd := (*session.NewSessionTimeStart).Add(60 * time.Minute)
-	session.NewSessionTimeEnd = &sessionTimeEnd
-	setRescheduleStatus(&session, user.AsMentor)
-	updatedSession, err := database.RescheduleSession(session)
-	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session update")
+	if mentorSession.NewSessionTimeStart == nil || mentorSession.SessionId.IsZero() {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Invalid json request")
+		return
 	}
-	WriteJSONResponse(w, http.StatusOK, updatedSession)
+	user, err := database.GetUserByID(userSession.UserId)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusNotFound, "Failed to find user(%s)")
+		return
+	}
+	sessionTimeEnd := (*mentorSession.NewSessionTimeStart).Add(60 * time.Minute)
+	mentorSession.NewSessionTimeEnd = &sessionTimeEnd
+	setRescheduleStatus(&mentorSession, user.AsMentor)
+	updatedSession, err := database.RescheduleSession(mentorSession)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error during session update")
+	}
+
+	go emailNotifications.SendSessionRescheduledEmail(updatedSession)
+	writeJSONResponse(w, r, http.StatusOK, updatedSession)
 }
 
 func setRescheduleStatus(session *model.Session, isMentor bool) {
@@ -297,49 +330,51 @@ func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	sessionId := queryParameters.Get("sessionId")
 	if sessionId == "" {
-		WriteMessageResponse(w, http.StatusBadRequest, "Session id wasn't provided")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Session id wasn't provided")
 		return
 	}
-	updateSession, err := database.ConfirmSession(sessionId)
+	updatedSession, err := database.ConfirmSession(sessionId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session confirm")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error during session confirm")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, updateSession)
+	go emailNotifications.SendSessionConfirmedEmail(updatedSession)
+	writeJSONResponse(w, r, http.StatusOK, updatedSession)
 }
 
 func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
-	userId, err := getUserIdFromToken(r)
-	if err != nil {
-		handleInvalidTokenResponse(w)
+	userSession := getUserSessionFromRequest(r)
+	if userSession == nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
 	queryParameters := r.URL.Query()
 	sessionId := queryParameters.Get("sessionId")
-	if sessionId == "" {
-		WriteMessageResponse(w, http.StatusBadRequest, "Session id wasn't provided")
-		return
-	}
-	updateSession, err := database.CancelSession(sessionId, userId)
+	sessionIdObj, err := primitive.ObjectIDFromHex(sessionId)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Database error during session cancel")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Session id invalid")
 		return
 	}
-	WriteJSONResponse(w, http.StatusOK, updateSession)
+	updateSession, err := database.CancelSession(sessionIdObj, userSession.UserId)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error during session cancel")
+		return
+	}
+	writeJSONResponse(w, r, http.StatusOK, updateSession)
 }
 
 func CreateSessionReview(w http.ResponseWriter, r *http.Request) {
 	var sessionReview model.SessionReview
-	err := ParseJSONRequest(r, &sessionReview)
+	err := parseJSONRequest(r, &sessionReview)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusBadRequest, "Error parsing JSON session review")
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON session review")
 		return
 	}
 
-	session, err := database.CreateReviewAndUpdateSession(&sessionReview)
+	mentorSession, err := database.CreateReviewAndUpdateSession(&sessionReview)
 	if err != nil {
-		WriteMessageResponse(w, http.StatusInternalServerError, "Database error creating review")
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error creating review")
 		return
 	}
-	WriteJSONResponse(w, http.StatusCreated, session)
+	writeJSONResponse(w, r, http.StatusCreated, mentorSession)
 }
