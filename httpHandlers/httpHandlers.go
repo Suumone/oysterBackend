@@ -12,7 +12,6 @@ import (
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
-	"time"
 )
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +150,7 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	updateTimezoneTime(&userForUpdate)
+	updateUsersTimezoneTime(&userForUpdate)
 
 	mentorRequest := userForUpdate.UserMentorRequest
 	userForUpdate.UserMentorRequest = ""
@@ -185,40 +184,15 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, r, http.StatusOK, userForExperienceUpdate)
 }
 
-func updateTimezoneTime(user *model.User) {
+func updateUsersTimezoneTime(user *model.User) {
 	if user.Availability == nil {
 		return
 	}
 	for _, availability := range user.Availability {
-		timeZoneOffset, err := time.ParseDuration(availability.TimeZone)
+		err := utils.UpdateTimezoneTime(availability)
 		if err != nil {
-			log.Printf("Error ParseDuration: %v\n", err)
-			return
+			continue
 		}
-		log.Printf("availability.TimeZone(%s), timeZoneOffset(%s)\n", availability.TimeZone, timeZoneOffset)
-
-		fullDateTimeFrom := time.Now().Format("2006-01-02") + " " + availability.TimeFrom
-		fullDateTimeTo := time.Now().Format("2006-01-02") + " " + availability.TimeTo
-		layout := "2006-01-02 15:04"
-		parsedTimeFrom, err := time.Parse(layout, fullDateTimeFrom)
-		if err != nil {
-			log.Printf("Error Parse time from: %v\n", err)
-			return
-		}
-		parsedTimeTo, err := time.Parse(layout, fullDateTimeTo)
-		if err != nil {
-			log.Printf("Error Parse time from: %v\n", err)
-			return
-		}
-		parsedTimeFrom = parsedTimeFrom.Add(timeZoneOffset)
-		utcTimeFrom := parsedTimeFrom.UTC()
-		availability.TimeFrom = utcTimeFrom.Format("15:04")
-		log.Printf("availability.TimeFrom: %s\n", availability.TimeFrom)
-
-		parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
-		utcTimeTo := parsedTimeTo.UTC()
-		availability.TimeTo = utcTimeTo.Format("15:04")
-		log.Printf("availability.TimeTo: %s\n", availability.TimeTo)
 	}
 }
 

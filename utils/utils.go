@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"log"
 	"net/url"
 	"oysterProject/model"
 	"reflect"
@@ -70,4 +71,34 @@ func SetStatusText(session *model.Session) {
 
 func TimePtr(t time.Time) *time.Time {
 	return &t
+}
+
+const dateLayout = "2006-01-02 15:04"
+const timeLayout = "15:04"
+
+func UpdateTimezoneTime(availability *model.Availability) error {
+	timeZoneOffset, err := time.ParseDuration(availability.TimeZone)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error ParseDuration. TimeZone: %s, error:: %v\n", availability.TimeZone, err)
+		return err
+	}
+	fullDateTimeFrom := "2006-01-02 " + availability.TimeFrom
+	fullDateTimeTo := "2006-01-02 " + availability.TimeTo
+	parsedTimeFrom, err := time.Parse(dateLayout, fullDateTimeFrom)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeFrom. TimeFrom: %s, error:: %v\n", availability.TimeFrom, err)
+		return err
+	}
+	parsedTimeTo, err := time.Parse(dateLayout, fullDateTimeTo)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeTo. TimeTo: %s, error:: %v\n", availability.TimeTo, err)
+		return err
+	}
+	parsedTimeFrom = parsedTimeFrom.Add(timeZoneOffset)
+	availability.TimeFrom = parsedTimeFrom.UTC().Format(timeLayout)
+
+	parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
+	availability.TimeTo = parsedTimeTo.UTC().Format(timeLayout)
+
+	return nil
 }
