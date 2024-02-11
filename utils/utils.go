@@ -77,11 +77,7 @@ const dateLayout = "2006-01-02 15:04"
 const timeLayout = "15:04"
 
 func UpdateTimezoneTime(availability *model.Availability) error {
-	timeZoneOffset, err := time.ParseDuration(availability.TimeZone)
-	if err != nil {
-		log.Printf("UpdateTimezoneTime: error ParseDuration. TimeZone: %s, error:: %v\n", availability.TimeZone, err)
-		return err
-	}
+	timeZoneOffset := time.Duration(availability.TimeZone) * time.Minute
 	fullDateTimeFrom := "2006-01-02 " + availability.TimeFrom
 	fullDateTimeTo := "2006-01-02 " + availability.TimeTo
 	parsedTimeFrom, err := time.Parse(dateLayout, fullDateTimeFrom)
