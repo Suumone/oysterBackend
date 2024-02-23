@@ -3,7 +3,6 @@ package schedulerJobs
 import (
 	"context"
 	"errors"
-	"github.com/go-co-op/gocron"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"log"
@@ -11,27 +10,6 @@ import (
 	"oysterProject/model"
 	"time"
 )
-
-const (
-	statusCalculationInterval     = 30 * time.Minute
-	deleteExpiredSessionsInterval = 24 * time.Hour
-	dbTimeout                     = 5 * time.Minute
-)
-
-func StartJobs() {
-	startAsyncJob(statusCalculation, statusCalculationInterval)
-	startAsyncJob(deleteExpired, deleteExpiredSessionsInterval)
-}
-
-func startAsyncJob(jobFunc func(), interval time.Duration) {
-	j := gocron.NewScheduler(time.UTC)
-	_, err := j.Every(interval).Do(jobFunc)
-	if err != nil {
-		log.Fatalf("Error initializing job: %v\n", err)
-		return
-	}
-	j.StartAsync()
-}
 
 func statusCalculation() {
 	runJobWithTimeout(func(ctx context.Context) {

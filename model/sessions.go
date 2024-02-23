@@ -81,6 +81,20 @@ type SessionReview struct {
 	Rating       int                `json:"rating"`
 }
 
+type SessionNotification struct {
+	SessionId        primitive.ObjectID `json:"sessionId" bson:"_id,omitempty"`
+	MentorId         primitive.ObjectID `json:"mentorId" bson:"mentorId"`
+	MenteeId         primitive.ObjectID `json:"menteeId" bson:"menteeId"`
+	SessionTimeStart *time.Time         `json:"sessionTimeStart" bson:"sessionTimeStart"`
+	SessionTimeEnd   *time.Time         `json:"sessionTimeEnd" bson:"sessionTimeEnd"`
+	PaymentDetails   string             `json:"paymentDetails" bson:"paymentDetails"`
+	MeetingLink      string             `json:"meetingLink" bson:"meetingLink"`
+	MenteeName       string             `json:"menteeName" bson:"menteeName"`
+	MenteeEmail      string             `json:"menteeEmail" bson:"menteeEmail"`
+	MentorName       string             `json:"mentorName" bson:"mentorName"`
+	MentorEmail      string             `json:"mentorEmail" bson:"mentorEmail"`
+}
+
 func (s Status) GetStatusForMentee() string {
 	switch s {
 	case CreatedByMentee:
