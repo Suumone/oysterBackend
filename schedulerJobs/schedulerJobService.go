@@ -4,6 +4,7 @@ import (
 	"github.com/go-co-op/gocron"
 	"log"
 	"oysterProject/model"
+	"oysterProject/utils"
 	"time"
 )
 
@@ -26,10 +27,15 @@ func StartJobs() {
 }
 
 func startAsyncJob(jobFunc func(), interval, delay time.Duration) {
-	j := gocron.NewScheduler(time.UTC)
-	_, err := j.Every(interval).StartAt(time.Now().UTC().Add(delay)).Do(jobFunc)
+	j := gocron.NewScheduler(time.UTC).Every(interval)
+	if delay == 0 {
+		j.StartImmediately()
+	} else {
+		j.StartAt(time.Now().UTC().Add(delay))
+	}
+	_, err := j.Do(jobFunc)
 	if err != nil {
-		log.Fatalf("Error initializing job: %v\n", err)
+		log.Fatalf("Error initializing job(%s): %v\n", utils.GetFunctionName(jobFunc), err)
 		return
 	}
 	j.StartAsync()

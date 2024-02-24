@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"oysterProject/model"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -98,4 +99,8 @@ func UpdateTimezoneTime(availability *model.Availability) error {
 	availability.TimeTo = parsedTimeTo.UTC().Format(TimeLayout)
 
 	return nil
+}
+
+func GetFunctionName(i any) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
