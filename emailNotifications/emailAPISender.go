@@ -48,7 +48,7 @@ func sendEmailMessage(message *mail.SGMailV3) {
 	}
 }
 
-func sendTemplateEmail(templateID, toName, toEmail string, dynamicTemplateData map[string]interface{}) {
+func sendTemplateEmail(templateID, toName, toEmail string, dynamicTemplateData map[string]any) {
 	message := mail.NewV3Mail()
 	personalization := mail.NewPersonalization()
 	personalization.DynamicTemplateData = dynamicTemplateData
@@ -68,14 +68,14 @@ func SendUserFilledQuestionsEmail(user *model.User) {
 		templateID = mentorFilledQuestionsTemplateID
 	}
 
-	dynamicTemplateData := map[string]interface{}{
+	dynamicTemplateData := map[string]any{
 		"name": user.Username,
 	}
 	sendTemplateEmail(templateID, user.Username, user.Email, dynamicTemplateData)
 }
 
 func SendSessionWasCreatedEmail(session *model.SessionResponse) {
-	dynamicTemplateData := map[string]interface{}{
+	dynamicTemplateData := map[string]any{
 		"mentorName":  session.Mentor.Name,
 		"menteeName":  session.Mentee.Name,
 		"sessionDate": session.SessionTimeStart.Format(utils.DateLayout),
@@ -95,7 +95,7 @@ func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 }
 
 func SendSessionConfirmedEmail(session *model.SessionResponse) {
-	dynamicTemplateData := map[string]interface{}{
+	dynamicTemplateData := map[string]any{
 		"mentorName":  session.Mentor.Name,
 		"menteeName":  session.Mentee.Name,
 		"sessionDate": session.SessionTimeStart.Format(utils.DateLayout),
@@ -106,7 +106,7 @@ func SendSessionConfirmedEmail(session *model.SessionResponse) {
 }
 
 func SendSessionRescheduledEmail(session *model.SessionResponse) {
-	dynamicTemplateData := map[string]interface{}{
+	dynamicTemplateData := map[string]any{
 		"mentorName":  session.Mentor.Name,
 		"menteeName":  session.Mentee.Name,
 		"sessionDate": session.NewSessionTimeStart.Format(utils.DateLayout),
@@ -129,7 +129,7 @@ func SendSessionRescheduledEmail(session *model.SessionResponse) {
 }
 
 func SendNotificationBeforeSession(session *model.SessionNotification) {
-	dynamicTemplateData := map[string]interface{}{
+	dynamicTemplateData := map[string]any{
 		"mentorName":     session.MentorName,
 		"menteeName":     session.MenteeName,
 		"meetingLink":    session.MeetingLink,
@@ -137,5 +137,5 @@ func SendNotificationBeforeSession(session *model.SessionNotification) {
 	}
 
 	sendTemplateEmail(sessionMenteeNotificationTemplateID, session.MenteeName, session.MenteeEmail, dynamicTemplateData)
-	sendTemplateEmail(sessionMentorNotificationTemplateID, session.MenteeName, session.MenteeEmail, dynamicTemplateData)
+	sendTemplateEmail(sessionMentorNotificationTemplateID, session.MentorName, session.MentorEmail, dynamicTemplateData)
 }
