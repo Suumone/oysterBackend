@@ -98,6 +98,7 @@ func UpdateTimezoneTime(availability *model.Availability) error {
 	parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
 	availability.TimeTo = parsedTimeTo.UTC().Format(TimeLayout)
 
+	availability.TimeZone = -availability.TimeZone
 	return nil
 }
 
