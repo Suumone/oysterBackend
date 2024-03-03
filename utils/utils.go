@@ -105,3 +105,10 @@ func UpdateTimezoneTime(availability *model.Availability) error {
 func GetFunctionName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
+
+func GetSessionTime(session *model.SessionResponse) (string, string) {
+	if session.SessionTimeStart != nil {
+		return session.SessionTimeStart.Format(DateLayout), session.SessionTimeStart.Format(TimeLayout)
+	}
+	return "N/A", "N/A"
+}

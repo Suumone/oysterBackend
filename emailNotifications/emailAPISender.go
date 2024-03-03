@@ -76,12 +76,13 @@ func SendUserFilledQuestionsEmail(user *model.User) {
 
 func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 	dynamicTemplateData := map[string]any{
-		"mentorName":  session.Mentor.Name,
-		"menteeName":  session.Mentee.Name,
-		"sessionDate": session.SessionTimeStart.Format(utils.DateLayout),
-		"sessionTime": session.SessionTimeStart.Format(utils.TimeLayout),
-		"price":       session.PaymentDetails,
+		"mentorName": session.Mentor.Name,
+		"menteeName": session.Mentee.Name,
+		"price":      session.PaymentDetails,
 	}
+	sessionDate, sessionTime := utils.GetSessionTime(session)
+	dynamicTemplateData["sessionDate"] = sessionDate
+	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(mentorSessionCreatedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
 	var templateId string
 	if strings.EqualFold(session.PaymentDetails, "free") {
@@ -96,22 +97,24 @@ func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 
 func SendSessionConfirmedEmail(session *model.SessionResponse) {
 	dynamicTemplateData := map[string]any{
-		"mentorName":  session.Mentor.Name,
-		"menteeName":  session.Mentee.Name,
-		"sessionDate": session.SessionTimeStart.Format(utils.DateLayout),
-		"sessionTime": session.SessionTimeStart.Format(utils.TimeLayout),
+		"mentorName": session.Mentor.Name,
+		"menteeName": session.Mentee.Name,
 	}
+	sessionDate, sessionTime := utils.GetSessionTime(session)
+	dynamicTemplateData["sessionDate"] = sessionDate
+	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(mentorSessionConfirmedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
 	sendTemplateEmail(menteeSessionConfirmedTemplateID, session.Mentee.Name, session.Mentee.Email, dynamicTemplateData)
 }
 
 func SendSessionRescheduledEmail(session *model.SessionResponse) {
 	dynamicTemplateData := map[string]any{
-		"mentorName":  session.Mentor.Name,
-		"menteeName":  session.Mentee.Name,
-		"sessionDate": session.NewSessionTimeStart.Format(utils.DateLayout),
-		"sessionTime": session.NewSessionTimeStart.Format(utils.TimeLayout),
+		"mentorName": session.Mentor.Name,
+		"menteeName": session.Mentee.Name,
 	}
+	sessionDate, sessionTime := utils.GetSessionTime(session)
+	dynamicTemplateData["sessionDate"] = sessionDate
+	dynamicTemplateData["sessionTime"] = sessionTime
 
 	templateID := mentorSessionRescheduledTemplateID
 	toName := session.Mentor.Name
