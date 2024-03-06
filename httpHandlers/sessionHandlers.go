@@ -326,7 +326,7 @@ func setRescheduleStatus(session *model.Session, isMentor bool) {
 	}
 }
 
-func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
+func ConfirmSessionRequest(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	sessionId := queryParameters.Get("sessionId")
 	if sessionId == "" {

@@ -49,7 +49,7 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Get("/getUserSessions", httpHandlers.GetUserSessions)
 		r.Post("/create", httpHandlers.CreateSession)
 		r.Post("/rescheduleRequest", httpHandlers.RescheduleRequest)
-		r.Post("/confirmRescheduleRequest", httpHandlers.ConfirmRescheduleRequest)
+		r.Post("/confirmRescheduleRequest", httpHandlers.ConfirmSessionRequest)
 		r.Post("/cancelRescheduleRequest", httpHandlers.CancelRescheduleRequest)
 		r.Post("/createSessionReview", httpHandlers.CreateSessionReview)
 	})
