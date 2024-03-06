@@ -4,6 +4,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"oysterProject/model"
+	"time"
 )
 
 func GetMentorReviewsPipeline(idToFind primitive.ObjectID) bson.A {
@@ -184,6 +186,61 @@ func GetUserBestMentorsPipeline(idToFind primitive.ObjectID) bson.A {
 		},
 		bson.D{{"$unwind", "$bestMentorsData"}},
 		bson.D{{"$replaceRoot", bson.D{{"newRoot", "$bestMentorsData"}}}},
+	}
+	return pipeline
+}
+
+func GetSessionsForNotification(filterTimeGt, filterTimeLte time.Time) bson.A {
+	pipeline := bson.A{
+		bson.D{
+			{"$match",
+				bson.D{
+					{"sessionStatus", model.Confirmed},
+					{"sessionTimeStart", bson.D{
+						{"$gt", filterTimeGt},
+						{"$lte", filterTimeLte},
+					}},
+				},
+			},
+		},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "menteeId"},
+					{"foreignField", "_id"},
+					{"as", "mentee"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentee"}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "mentorId"},
+					{"foreignField", "_id"},
+					{"as", "mentor"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentor"}}}},
+		bson.D{
+			{"$project",
+				bson.D{
+					{"mentorId", 1},
+					{"menteeId", 1},
+					{"sessionTimeStart", 1},
+					{"sessionTimeEnd", 1},
+					{"meetingLink", 1},
+					{"paymentDetails", 1},
+					{"menteeName", "$mentee.name"},
+					{"menteeEmail", "$mentee.email"},
+					{"mentorName", "$mentor.name"},
+					{"mentorEmail", "$mentor.email"},
+				},
+			},
+		},
 	}
 	return pipeline
 }

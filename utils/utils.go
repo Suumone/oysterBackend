@@ -5,11 +5,16 @@ import (
 	"net/url"
 	"oysterProject/model"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 )
 
-const ImageLimitSizeMB = 1024 * 1024 * 5 //5 MB
+const (
+	ImageLimitSizeMB = 1024 * 1024 * 5 //5 MB
+	DateLayout       = "2006-01-02 15:04"
+	TimeLayout       = "15:04"
+)
 
 func IsEmptyStruct(input interface{}) bool {
 	zeroValue := reflect.New(reflect.TypeOf(input)).Elem().Interface()
@@ -73,28 +78,37 @@ func TimePtr(t time.Time) *time.Time {
 	return &t
 }
 
-const dateLayout = "2006-01-02 15:04"
-const timeLayout = "15:04"
-
 func UpdateTimezoneTime(availability *model.Availability) error {
 	timeZoneOffset := time.Duration(availability.TimeZone) * time.Minute
 	fullDateTimeFrom := "2006-01-02 " + availability.TimeFrom
 	fullDateTimeTo := "2006-01-02 " + availability.TimeTo
-	parsedTimeFrom, err := time.Parse(dateLayout, fullDateTimeFrom)
+	parsedTimeFrom, err := time.Parse(DateLayout, fullDateTimeFrom)
 	if err != nil {
 		log.Printf("UpdateTimezoneTime: error parsedTimeFrom. TimeFrom: %s, error:: %v\n", availability.TimeFrom, err)
 		return err
 	}
-	parsedTimeTo, err := time.Parse(dateLayout, fullDateTimeTo)
+	parsedTimeTo, err := time.Parse(DateLayout, fullDateTimeTo)
 	if err != nil {
 		log.Printf("UpdateTimezoneTime: error parsedTimeTo. TimeTo: %s, error:: %v\n", availability.TimeTo, err)
 		return err
 	}
 	parsedTimeFrom = parsedTimeFrom.Add(timeZoneOffset)
-	availability.TimeFrom = parsedTimeFrom.UTC().Format(timeLayout)
+	availability.TimeFrom = parsedTimeFrom.UTC().Format(TimeLayout)
 
 	parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
-	availability.TimeTo = parsedTimeTo.UTC().Format(timeLayout)
+	availability.TimeTo = parsedTimeTo.UTC().Format(TimeLayout)
 
+	availability.TimeZone = -availability.TimeZone
 	return nil
+}
+
+func GetFunctionName(i any) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+func GetSessionTime(session *model.SessionResponse) (string, string) {
+	if session.SessionTimeStart != nil {
+		return session.SessionTimeStart.Format(DateLayout), session.SessionTimeStart.Format(TimeLayout)
+	}
+	return "N/A", "N/A"
 }

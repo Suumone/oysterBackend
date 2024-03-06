@@ -159,7 +159,7 @@ func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []*model.SessionR
 	for _, slot := range slots {
 		isBooked := false
 		for _, bookedSlot := range bookedSessions {
-			if slot.EndTime.After(*bookedSlot.SessionTimeStart) && slot.StartTime.Before(*bookedSlot.SessionTimeEnd) && (bookedSlot.SessionStatus < 5) {
+			if bookedSlot.SessionTimeStart != nil && slot.EndTime.After(*bookedSlot.SessionTimeStart) && bookedSlot.SessionTimeEnd != nil && slot.StartTime.Before(*bookedSlot.SessionTimeEnd) && (bookedSlot.SessionStatus < 5) {
 				isBooked = true
 				break
 			}
@@ -326,7 +326,7 @@ func setRescheduleStatus(session *model.Session, isMentor bool) {
 	}
 }
 
-func ConfirmRescheduleRequest(w http.ResponseWriter, r *http.Request) {
+func ConfirmSessionRequest(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	sessionId := queryParameters.Get("sessionId")
 	if sessionId == "" {

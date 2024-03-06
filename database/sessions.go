@@ -176,17 +176,27 @@ func ConfirmSession(sessionId string) (*model.SessionResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	updateOp := bson.M{
-		"$set": bson.M{
-			"sessionTimeStart": session.NewSessionTimeStart,
-			"sessionTimeEnd":   session.NewSessionTimeEnd,
-			"sessionStatus":    model.Confirmed,
-		},
-		"$unset": bson.M{
-			"newSessionTimeStart": "",
-			"newSessionTimeEnd":   "",
-		},
+	var updateOp bson.M
+	if session.SessionStatus == model.PendingByMentor {
+		updateOp = bson.M{
+			"$set": bson.M{
+				"sessionTimeStart": session.SessionTimeStart,
+				"sessionTimeEnd":   session.SessionTimeEnd,
+				"sessionStatus":    model.Confirmed,
+			},
+		}
+	} else {
+		updateOp = bson.M{
+			"$set": bson.M{
+				"sessionTimeStart": session.NewSessionTimeStart,
+				"sessionTimeEnd":   session.NewSessionTimeEnd,
+				"sessionStatus":    model.Confirmed,
+			},
+			"$unset": bson.M{
+				"newSessionTimeStart": "",
+				"newSessionTimeEnd":   "",
+			},
+		}
 	}
 
 	return updateSessionAndPrepareResponse(filter, updateOp)
