@@ -20,9 +20,10 @@ type PasswordChange struct {
 }
 
 type Auth struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-	AsMentor bool   `json:"asMentor,omitempty"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	AsMentor       bool   `json:"asMentor,omitempty"`
+	LatestTimeZone bool   `json:"latestTimeZone,omitempty"`
 }
 
 type RequestParams struct {

@@ -112,3 +112,9 @@ func GetSessionTime(session *model.SessionResponse) (string, string) {
 	}
 	return "N/A", "N/A"
 }
+
+func convertUTCtoLocal(utcTime *time.Time, offset int) time.Time {
+	loc := time.FixedZone("Local Timezone", offset)
+	localTime := utcTime.In(loc)
+	return localTime
+}

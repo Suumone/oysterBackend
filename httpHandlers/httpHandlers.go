@@ -185,6 +185,9 @@ func UpdateUserProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateUsersTimezoneTime(user *model.User) {
+	if user.LatestTimeZone != 0 {
+		user.LatestTimeZone = -user.LatestTimeZone
+	}
 	if user.Availability == nil {
 		return
 	}
