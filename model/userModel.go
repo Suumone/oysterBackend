@@ -35,6 +35,7 @@ type User struct {
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
 	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate,omitempty"`
+	LatestTimeZone         int                  `json:"latestTimeZone" bson:"latestTimeZone,omitempty"`
 }
 
 type CountryDescription struct {
@@ -62,11 +63,12 @@ type UserState struct {
 }
 
 type UserImage struct {
-	UserId    primitive.ObjectID `json:"userId" bson:"userId"`
-	Name      string             `json:"name,omitempty" bson:"name,omitempty"`
-	Email     string             `json:"-" bson:"email"`
-	Image     []byte             `json:"image" bson:"image"`
-	Extension string             `json:"extension" bson:"extension"`
+	UserId         primitive.ObjectID `json:"userId" bson:"userId"`
+	Name           string             `json:"name,omitempty" bson:"name,omitempty"`
+	Email          string             `json:"-" bson:"email"`
+	Image          []byte             `json:"image" bson:"image"`
+	Extension      string             `json:"extension" bson:"extension"`
+	LatestTimeZone int                `json:"-" bson:"latestTimeZone"`
 }
 
 type Availability struct {
