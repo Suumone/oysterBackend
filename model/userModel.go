@@ -35,7 +35,7 @@ type User struct {
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
 	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate,omitempty"`
-	LatestTimeZone         int                  `json:"latestTimeZone" bson:"latestTimeZone"`
+	LatestTimeZone         int                  `json:"latestTimeZone" bson:"latestTimeZone,omitempty"`
 }
 
 type CountryDescription struct {
