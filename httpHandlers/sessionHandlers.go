@@ -159,7 +159,7 @@ func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []*model.SessionR
 	for _, slot := range slots {
 		isBooked := false
 		for _, bookedSlot := range bookedSessions {
-			if bookedSlot.SessionTimeStart != nil && slot.EndTime.After(*bookedSlot.SessionTimeStart) && bookedSlot.SessionTimeEnd != nil && slot.StartTime.Before(*bookedSlot.SessionTimeEnd) && (bookedSlot.SessionStatus < 5) {
+			if bookedSlot.SessionTimeStart != nil && slot.EndTime.After(*bookedSlot.SessionTimeStart) && bookedSlot.SessionTimeEnd != nil && slot.StartTime.Before((*bookedSlot.SessionTimeEnd).Add(-1*time.Second)) && (bookedSlot.SessionStatus < 5) {
 				isBooked = true
 				break
 			}

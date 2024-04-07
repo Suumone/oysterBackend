@@ -45,6 +45,7 @@ func createRoutine(jobFunc func(session *model.SessionNotification), session *mo
 	go func() {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()
+		log.Printf("Timer was created with delay: %s\n", delay)
 		select {
 		case <-timer.C:
 			jobFunc(session)
