@@ -106,7 +106,7 @@ func GetFunctionName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 
-func GetSessionTime(session *model.SessionResponse) (string, string) {
+func GetSessionTime(session *model.SessionResponse, timeZone int) (string, string) {
 	if session.SessionTimeStart != nil {
 		return session.SessionTimeStart.Format(DateLayout), session.SessionTimeStart.Format(TimeLayout)
 	}

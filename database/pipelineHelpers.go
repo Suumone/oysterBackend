@@ -192,7 +192,7 @@ func GetUserBestMentorsPipeline(idToFind primitive.ObjectID) bson.A {
 	return pipeline
 }
 
-func GetSessionsForNotification(filterTimeGt, filterTimeLte time.Time) bson.A {
+func GetSessionsForNotificationPipeline(filterTimeGt, filterTimeLte time.Time) bson.A {
 	pipeline := bson.A{
 		bson.D{
 			{"$match",
