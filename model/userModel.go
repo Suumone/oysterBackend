@@ -2,6 +2,8 @@ package model
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"log"
+	"oysterProject/utils"
 	"time"
 )
 
@@ -76,4 +78,28 @@ type Availability struct {
 	TimeFrom string `json:"timeFrom" bson:"timeFrom"`
 	TimeTo   string `json:"timeTo" bson:"timeTo"`
 	TimeZone int32  `json:"timeZone" bson:"timeZone"`
+}
+
+func UpdateTimezoneTime(availability *Availability) error {
+	timeZoneOffset := time.Duration(availability.TimeZone) * time.Minute
+	fullDateTimeFrom := "2006-01-02 " + availability.TimeFrom
+	fullDateTimeTo := "2006-01-02 " + availability.TimeTo
+	parsedTimeFrom, err := time.Parse(utils.DateLayout, fullDateTimeFrom)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeFrom. TimeFrom: %s, error:: %v\n", availability.TimeFrom, err)
+		return err
+	}
+	parsedTimeTo, err := time.Parse(utils.DateLayout, fullDateTimeTo)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeTo. TimeTo: %s, error:: %v\n", availability.TimeTo, err)
+		return err
+	}
+	parsedTimeFrom = parsedTimeFrom.Add(timeZoneOffset)
+	availability.TimeFrom = parsedTimeFrom.UTC().Format(utils.TimeLayout)
+
+	parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
+	availability.TimeTo = parsedTimeTo.UTC().Format(utils.TimeLayout)
+
+	availability.TimeZone = -availability.TimeZone
+	return nil
 }

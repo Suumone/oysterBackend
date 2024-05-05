@@ -362,19 +362,3 @@ func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSONResponse(w, r, http.StatusOK, updateSession)
 }
-
-func CreateSessionReview(w http.ResponseWriter, r *http.Request) {
-	var sessionReview model.SessionReview
-	err := parseJSONRequest(r, &sessionReview)
-	if err != nil {
-		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON session review")
-		return
-	}
-
-	mentorSession, err := database.CreateReviewAndUpdateSession(&sessionReview)
-	if err != nil {
-		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error creating review")
-		return
-	}
-	writeJSONResponse(w, r, http.StatusCreated, mentorSession)
-}
