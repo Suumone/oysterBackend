@@ -260,6 +260,17 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 }
 
 func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
+	userChan := make(chan *model.User)
+	errChan := make(chan error)
+	go func() {
+		userWithImage, err := GetUserWithImageByID(id)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		userChan <- userWithImage
+	}()
+
 	collection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": id}
 	updateOp := bson.M{"$set": user}
@@ -269,9 +280,13 @@ func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, err
 	if err != nil {
 		return nil, err
 	}
-	userAfterUpdate, err := GetUserWithImageByID(id) //todo GetUserPictureByUserId
-	if err != nil {
-		return nil, err
+
+	var userAfterUpdate *model.User
+	select {
+	case userFromChan := <-userChan:
+		userAfterUpdate = userFromChan
+	case errFromChan := <-errChan:
+		return nil, errFromChan
 	}
 	log.Printf("User(id: %s) updated successfully!\n", id)
 	return userAfterUpdate, nil
