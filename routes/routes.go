@@ -51,8 +51,10 @@ func ConfigureRoutes(r *chi.Mux) {
 		r.Post("/rescheduleRequest", httpHandlers.RescheduleRequest)
 		r.Post("/confirmRescheduleRequest", httpHandlers.ConfirmSessionRequest)
 		r.Post("/cancelRescheduleRequest", httpHandlers.CancelRescheduleRequest)
-		r.Post("/createSessionReview", httpHandlers.CreateSessionReview)
+		r.Post("/{sessionId}/createSessionReview", httpHandlers.CreateSessionReview)
 	})
+
+	r.With(httpHandlers.AuthMiddleware).Post("/createPublicReview", httpHandlers.CreatePublicReview)
 }
 
 func ConfigureCors(r *chi.Mux) {

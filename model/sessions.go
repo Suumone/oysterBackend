@@ -2,6 +2,7 @@ package model
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"oysterProject/utils"
 	"time"
 )
 
@@ -71,14 +72,6 @@ type AvailableWeekday struct {
 type TimeSlot struct {
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
-}
-
-type SessionReview struct {
-	SessionId    primitive.ObjectID `json:"sessionId"`
-	PublicReview string             `json:"publicReview"`
-	PublicRating int                `json:"publicRating"`
-	Review       string             `json:"review"`
-	Rating       int                `json:"rating"`
 }
 
 type SessionNotification struct {
@@ -168,4 +161,17 @@ func (s Status) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func SetStatusText(session *Session) {
+	session.StatusForMentee = session.SessionStatus.GetStatusForMentee()
+	session.StatusForMentor = session.SessionStatus.GetStatusForMentor()
+	session.Status = session.SessionStatus.String()
+}
+
+func GetSessionTime(session *SessionResponse) (string, string) {
+	if session.SessionTimeStart != nil {
+		return session.SessionTimeStart.Format(utils.DateLayout), session.SessionTimeStart.Format(utils.TimeLayout)
+	}
+	return "N/A", "N/A"
 }
