@@ -46,7 +46,7 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error reading file")
 		return
 	}
-	err = database.SaveProfilePicture(userSession.UserId, fileBytes, ext)
+	err = database.SaveProfilePicture(userSession.UserId, &fileBytes, ext)
 	if err != nil {
 		log.Printf("Error during saving picture: %v\n", err)
 		writeMessageResponse(w, r, http.StatusBadRequest, "Error during saving picture")
