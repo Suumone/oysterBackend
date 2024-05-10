@@ -6,7 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 	"log"
@@ -520,23 +519,10 @@ func UpdateUserState(userId primitive.ObjectID) error {
 	return nil
 }
 
-func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtension string) error {
-	bucket, err := gridfs.NewBucket(
-		MongoDBOyster,
-	)
+func SaveProfilePicture(userId primitive.ObjectID, fileBytes *[]byte, fileExtension string) error {
+	destFilePath := ProfilePicturePath + "/" + userId.Hex() + fileExtension
+	err := UploadProfilePictureToDigitalOceanSpaces(destFilePath, fileBytes)
 	if err != nil {
-		log.Printf("Failed create bucket for user (id: %s) error:%s\n", userId, err)
-		return err
-	}
-	uploadStream, err := bucket.OpenUploadStream(userId.Hex()+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
-	if err != nil {
-		log.Printf("Failed to open image stream for user (id: %s) error:%s\n", userId, err)
-		return err
-	}
-	defer uploadStream.Close()
-	_, err = uploadStream.Write(fileBytes)
-	if err != nil {
-		log.Printf("Failed to upload image for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 
@@ -544,7 +530,7 @@ func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtensi
 	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
-			"profileImageId": uploadStream.FileID.(primitive.ObjectID),
+			"profileImageURL": destFilePath,
 		},
 	}
 	ctx, cancel := withTimeout(context.Background())
