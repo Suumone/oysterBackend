@@ -10,7 +10,6 @@ import (
 type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
 	Username               string               `json:"name,omitempty" bson:"name,omitempty"`
-	ProfileImageId         primitive.ObjectID   `json:"-" bson:"profileImageId,omitempty"`
 	ProfileImageURL        string               `json:"-" bson:"profileImageURL,omitempty"`
 	Company                string               `json:"company" bson:"company,omitempty"`
 	Email                  string               `json:"email" bson:"email,omitempty"`
@@ -33,7 +32,7 @@ type User struct {
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
-	UserImage              *UserImage           `json:"userImage,omitempty" bson:"userImage,omitempty"`
+	UserImage              *UserImage           `json:"userImage,omitempty" bson:"-"`
 	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
@@ -66,12 +65,11 @@ type UserState struct {
 }
 
 type UserImage struct {
-	UserId         primitive.ObjectID `json:"userId" bson:"userId"`
-	Name           string             `json:"name,omitempty" bson:"name,omitempty"`
-	Email          string             `json:"-" bson:"email"`
-	Image          []byte             `json:"image" bson:"image"`
-	Extension      string             `json:"extension" bson:"extension"`
-	LatestTimeZone int                `json:"-" bson:"latestTimeZone"`
+	UserId          primitive.ObjectID `json:"userId" bson:"_id"`
+	Name            string             `json:"name,omitempty" bson:"name,omitempty"`
+	Email           string             `json:"-" bson:"email"`
+	ProfileImageURL string             `json:"profileImageURL" bson:"profileImageURL"`
+	LatestTimeZone  int                `json:"-" bson:"latestTimeZone"`
 }
 
 type Availability struct {
