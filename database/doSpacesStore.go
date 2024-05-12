@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	BucketName           = "oyster"
 	ProfilePicturePath   = "profilePictures"
 	ACLForProfilePicture = "public-read"
 )
 
 var (
 	ProfilePicturePathPrefix = os.Getenv("DO_CDN_ENDPOINT")
+	BucketName               = os.Getenv("DO_BUCKET_NAME")
 )
 
 func UploadProfilePictureToDigitalOceanSpaces(destFilePath string, fileBytes []byte) error {
