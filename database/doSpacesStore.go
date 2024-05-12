@@ -9,12 +9,13 @@ import (
 )
 
 const (
-	BucketName         = "oyster"
-	ProfilePicturePath = "profilePictures"
+	BucketName           = "oyster"
+	ProfilePicturePath   = "profilePictures"
+	ACLForProfilePicture = "public-read"
 )
 
 var (
-	ProfilePicturePathPrefix = "https://oyster." + os.Getenv("DO_ENDPOINT")
+	ProfilePicturePathPrefix = os.Getenv("DO_CDN_ENDPOINT")
 )
 
 func UploadProfilePictureToDigitalOceanSpaces(destFilePath string, fileBytes []byte) error {
@@ -24,8 +25,19 @@ func UploadProfilePictureToDigitalOceanSpaces(destFilePath string, fileBytes []b
 		Body:   bytes.NewReader(fileBytes),
 	}
 	if _, err := S3Client.PutObject(s3Input); err != nil {
-		log.Println(err)
+		log.Println("UploadProfilePictureToDigitalOceanSpaces: failed to upload to s3:", err)
 		return err
 	}
+
+	s3InputACL := s3.PutObjectAclInput{
+		Bucket: aws.String(BucketName),
+		Key:    aws.String(destFilePath),
+		ACL:    aws.String(ACLForProfilePicture),
+	}
+	if _, err := S3Client.PutObjectAcl(&s3InputACL); err != nil {
+		log.Println("UploadProfilePictureToDigitalOceanSpaces: failed to upload acl:", err)
+		return err
+	}
+
 	return nil
 }
