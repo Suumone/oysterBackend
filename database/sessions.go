@@ -13,6 +13,17 @@ import (
 )
 
 func CreateSession(session model.Session) (*model.SessionResponse, error) {
+	mentorMenteeChan := make(chan []*model.UserImage)
+	errChan := make(chan error)
+	go func() {
+		mentorMenteeImages, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId})
+		if err != nil {
+			errChan <- err
+			return
+		}
+		mentorMenteeChan <- mentorMenteeImages
+	}()
+
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(SessionCollectionName)
@@ -24,9 +35,14 @@ func CreateSession(session model.Session) (*model.SessionResponse, error) {
 	}
 	session.SessionId = doc.InsertedID.(primitive.ObjectID)
 	log.Printf("Session(menteeId: %s, mentorId: %s, sessionId:%s) created successfully\n", session.MenteeId, session.MentorId, doc.InsertedID)
-	mentorMenteeInfo, err := GetUserImages([]primitive.ObjectID{session.MentorId, session.MenteeId}) //todo in channel
-	if err != nil {
-		return nil, err
+	var mentorMenteeInfo []*model.UserImage
+	select {
+	case mentorMenteeFromChan := <-mentorMenteeChan:
+		mentorMenteeInfo = mentorMenteeFromChan
+	case errFromChan := <-errChan:
+		if errFromChan != nil {
+			return nil, utils.UserImageNotFound
+		}
 	}
 	return createSessionResponse(mentorMenteeInfo, &session)
 }
@@ -51,6 +67,21 @@ func GetSession(sessionId string) (*model.SessionResponse, error) {
 	return createSessionResponse(mentorMenteeInfo, &session)
 }
 
+func GetMentorMenteeIdsBySessionId(sessionId string) (*model.Session, error) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	collection := GetCollection(SessionCollectionName)
+	idToFind, _ := primitive.ObjectIDFromHex(sessionId)
+	filter := bson.M{"_id": idToFind}
+	var session model.Session
+	err := collection.FindOne(ctx, filter).Decode(&session)
+	if err != nil {
+		handleFindError(err, sessionId, "session")
+		return nil, err
+	}
+	return &session, nil
+}
+
 func createSessionResponse(mentorMenteeInfo []*model.UserImage, session *model.Session) (*model.SessionResponse, error) {
 	var mentor, mentee *model.UserImage
 
@@ -67,7 +98,7 @@ func createSessionResponse(mentorMenteeInfo []*model.UserImage, session *model.S
 			break
 		}
 	}
-	utils.SetStatusText(session)
+	model.SetStatusText(session)
 
 	return &model.SessionResponse{
 		SessionId:           session.SessionId,
@@ -250,15 +281,4 @@ func updateSession(filter bson.M, updateOp bson.M) (model.Session, error) {
 	}
 
 	return updatedSession, nil
-}
-
-func UpdateSessionReviews(review *model.SessionReview) (*model.SessionResponse, error) {
-	filter := bson.M{"_id": review.SessionId}
-	updateOp := bson.M{
-		"$set": bson.M{
-			"menteeReview": review.Review,
-			"menteeRating": review.Rating,
-		},
-	}
-	return updateSessionAndPrepareResponse(filter, updateOp)
 }

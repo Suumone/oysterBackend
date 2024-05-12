@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"oysterProject/model"
-	"oysterProject/utils"
 	"strings"
 )
 
@@ -80,7 +79,7 @@ func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 		"menteeName": session.Mentee.Name,
 		"price":      session.PaymentDetails,
 	}
-	sessionDate, sessionTime := utils.GetSessionTime(session)
+	sessionDate, sessionTime := model.GetSessionTime(session)
 	dynamicTemplateData["sessionDate"] = sessionDate
 	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(mentorSessionCreatedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
@@ -92,6 +91,9 @@ func SendSessionWasCreatedEmail(session *model.SessionResponse) {
 	} else {
 		templateId = menteeSessionCreatedPaidTemplateID
 	}
+	sessionDate, sessionTime = model.GetSessionTime(session)
+	dynamicTemplateData["sessionDate"] = sessionDate
+	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(templateId, session.Mentee.Name, session.Mentee.Email, dynamicTemplateData)
 }
 
@@ -100,10 +102,14 @@ func SendSessionConfirmedEmail(session *model.SessionResponse) {
 		"mentorName": session.Mentor.Name,
 		"menteeName": session.Mentee.Name,
 	}
-	sessionDate, sessionTime := utils.GetSessionTime(session)
+	sessionDate, sessionTime := model.GetSessionTime(session)
 	dynamicTemplateData["sessionDate"] = sessionDate
 	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(mentorSessionConfirmedTemplateID, session.Mentor.Name, session.Mentor.Email, dynamicTemplateData)
+
+	sessionDate, sessionTime = model.GetSessionTime(session)
+	dynamicTemplateData["sessionDate"] = sessionDate
+	dynamicTemplateData["sessionTime"] = sessionTime
 	sendTemplateEmail(menteeSessionConfirmedTemplateID, session.Mentee.Name, session.Mentee.Email, dynamicTemplateData)
 }
 
@@ -112,9 +118,6 @@ func SendSessionRescheduledEmail(session *model.SessionResponse) {
 		"mentorName": session.Mentor.Name,
 		"menteeName": session.Mentee.Name,
 	}
-	sessionDate, sessionTime := utils.GetSessionTime(session)
-	dynamicTemplateData["sessionDate"] = sessionDate
-	dynamicTemplateData["sessionTime"] = sessionTime
 
 	templateID := mentorSessionRescheduledTemplateID
 	toName := session.Mentor.Name
@@ -124,6 +127,13 @@ func SendSessionRescheduledEmail(session *model.SessionResponse) {
 		templateID = menteeSessionRescheduledTemplateID
 		toName = session.Mentee.Name
 		toEmail = session.Mentee.Email
+		sessionDate, sessionTime := model.GetSessionTime(session)
+		dynamicTemplateData["sessionDate"] = sessionDate
+		dynamicTemplateData["sessionTime"] = sessionTime
+	} else if session.SessionStatus == model.ReschedulingByMentor {
+		sessionDate, sessionTime := model.GetSessionTime(session)
+		dynamicTemplateData["sessionDate"] = sessionDate
+		dynamicTemplateData["sessionTime"] = sessionTime
 	} else {
 		log.Printf("Wrong session status to send rescheduled email. Session id:%s, status:%s", session.SessionId, session.SessionStatus)
 		return

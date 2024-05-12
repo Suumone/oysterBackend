@@ -3,6 +3,7 @@ module oysterProject
 go 1.20
 
 require (
+	github.com/aws/aws-sdk-go v1.52.6
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/render v1.0.3
 	github.com/go-co-op/gocron v1.37.0
@@ -12,6 +13,7 @@ require (
 	go.mongodb.org/mongo-driver v1.12.1
 	golang.org/x/crypto v0.14.0
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
+	golang.org/x/net v0.17.0
 	golang.org/x/oauth2 v0.13.0
 )
 
@@ -20,6 +22,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.4.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.0 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect

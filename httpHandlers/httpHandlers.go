@@ -192,7 +192,7 @@ func updateUsersTimezoneTime(user *model.User) {
 		return
 	}
 	for _, availability := range user.Availability {
-		err := utils.UpdateTimezoneTime(availability)
+		err := model.UpdateTimezoneTime(availability)
 		if err != nil {
 			continue
 		}

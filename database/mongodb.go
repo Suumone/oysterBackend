@@ -6,7 +6,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 	"log"
@@ -260,6 +259,17 @@ func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.O
 }
 
 func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
+	userChan := make(chan *model.User)
+	errChan := make(chan error)
+	go func() {
+		userWithImage, err := GetUserWithImageByID(id)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		userChan <- userWithImage
+	}()
+
 	collection := GetCollection(UserCollectionName)
 	filter := bson.M{"_id": id}
 	updateOp := bson.M{"$set": user}
@@ -269,9 +279,13 @@ func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, err
 	if err != nil {
 		return nil, err
 	}
-	userAfterUpdate, err := GetUserWithImageByID(id) //todo GetUserPictureByUserId
-	if err != nil {
-		return nil, err
+
+	var userAfterUpdate *model.User
+	select {
+	case userFromChan := <-userChan:
+		userAfterUpdate = userFromChan
+	case errFromChan := <-errChan:
+		return nil, errFromChan
 	}
 	log.Printf("User(id: %s) updated successfully!\n", id)
 	return userAfterUpdate, nil
@@ -506,22 +520,8 @@ func UpdateUserState(userId primitive.ObjectID) error {
 }
 
 func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtension string) error {
-	bucket, err := gridfs.NewBucket(
-		MongoDBOyster,
-	)
-	if err != nil {
-		log.Printf("Failed create bucket for user (id: %s) error:%s\n", userId, err)
-		return err
-	}
-	uploadStream, err := bucket.OpenUploadStream(userId.Hex()+"_picture", options.GridFSUpload().SetMetadata(bson.M{"extension": fileExtension}).SetChunkSizeBytes(utils.ImageLimitSizeMB))
-	if err != nil {
-		log.Printf("Failed to open image stream for user (id: %s) error:%s\n", userId, err)
-		return err
-	}
-	defer uploadStream.Close()
-	_, err = uploadStream.Write(fileBytes)
-	if err != nil {
-		log.Printf("Failed to upload image for user (id: %s) error:%s\n", userId, err)
+	destFilePath := ProfilePicturePath + "/" + userId.Hex() + fileExtension
+	if err := UploadProfilePictureToDigitalOceanSpaces(destFilePath, fileBytes); err != nil {
 		return err
 	}
 
@@ -529,41 +529,61 @@ func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtensi
 	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
-			"profileImageId": uploadStream.FileID.(primitive.ObjectID),
+			"profileImageURL": ProfilePicturePathPrefix + "/" + destFilePath,
 		},
 	}
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
-	_, err = userCollection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		log.Printf("Failed to upadet profileImageId for user (id: %s) error:%s\n", userId, err)
+	if _, err := userCollection.UpdateOne(ctx, filter, update); err != nil {
+		log.Printf("Failed to upadet profileImageURL for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 	return nil
 }
 
 func GetUserPictureByUserId(userId primitive.ObjectID) (*model.UserImage, error) {
+	user, err := GetUserByID(userId)
+	if err != nil {
+		return nil, err
+	}
+	if len(user.ProfileImageURL) == 0 {
+		return nil, utils.UserImageNotFound
+	}
+	return &model.UserImage{
+		UserId:          user.Id,
+		Email:           user.Email,
+		Name:            user.Username,
+		ProfileImageURL: user.ProfileImageURL,
+	}, nil
+}
+
+func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
+	if len(userIds) == 0 {
+		log.Println("GetUserImages: empty list of users")
+		return nil, nil
+	}
+
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
+	filter := bson.M{"_id": bson.M{"$in": userIds}}
 	usersColl := GetCollection(UserCollectionName)
-	imageForUserPipeline := GetImageForUserPipeline(userId)
-	cursor, err := usersColl.Aggregate(ctx, imageForUserPipeline)
+	cursor, err := usersColl.Find(ctx, filter)
 	if err != nil {
-		log.Printf("Failed to execute image search: %v", err)
+		log.Printf("Failed to find users: %v", err)
 		return nil, err
 	}
 	defer cursor.Close(ctx)
-	var userImage model.UserImage
+
+	var result []*model.UserImage
 	for cursor.Next(ctx) {
-		if err := cursor.Decode(&userImage); err != nil {
-			log.Printf("Failed to decode image search result: %v", err)
+		var user model.UserImage
+		if err = cursor.Decode(&user); err != nil {
+			log.Printf("Failed to decode user with image: %v", err)
 			return nil, err
 		}
+		result = append(result, &user)
 	}
-	if utils.IsEmptyStruct(userImage) || len(userImage.Image) == 0 {
-		return nil, utils.UserImageNotFound
-	}
-	return &userImage, nil
+	return result, nil
 }
 
 func SaveBestMentorsForUser(userId primitive.ObjectID, mentors []model.MentorForRequest) {
@@ -690,34 +710,4 @@ func UpdateMentorRequest(request string, id primitive.ObjectID) {
 	}
 
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id.Hex())
-}
-
-func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
-	if len(userIds) == 0 {
-		log.Println("GetUserImages: empty list of users")
-		return nil, nil
-	}
-
-	ctx, cancel := withTimeout(context.Background())
-	defer cancel()
-	imagesForUsersPipeline := GetImagesForUsersPipeline(userIds)
-	usersColl := GetCollection(UserCollectionName)
-	cursor, err := usersColl.Aggregate(ctx, imagesForUsersPipeline)
-	if err != nil {
-		log.Printf("Failed to aggregate user with image: %v", err)
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var result []*model.UserImage
-	for cursor.Next(ctx) {
-		var user model.UserImage
-		err := cursor.Decode(&user)
-		if err != nil {
-			log.Printf("Failed to decode user with image: %v", err)
-			return nil, err
-		}
-		result = append(result, &user)
-	}
-	return result, nil
 }

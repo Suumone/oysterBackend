@@ -159,7 +159,7 @@ func excludeBookedSlots(slots []model.TimeSlot, bookedSessions []*model.SessionR
 	for _, slot := range slots {
 		isBooked := false
 		for _, bookedSlot := range bookedSessions {
-			if bookedSlot.SessionTimeStart != nil && slot.EndTime.After(*bookedSlot.SessionTimeStart) && bookedSlot.SessionTimeEnd != nil && slot.StartTime.Before(*bookedSlot.SessionTimeEnd) && (bookedSlot.SessionStatus < 5) {
+			if bookedSlot.SessionTimeStart != nil && slot.EndTime.After(*bookedSlot.SessionTimeStart) && bookedSlot.SessionTimeEnd != nil && slot.StartTime.Before((*bookedSlot.SessionTimeEnd).Add(-1*time.Second)) && (bookedSlot.SessionStatus < 5) {
 				isBooked = true
 				break
 			}
@@ -361,20 +361,4 @@ func CancelRescheduleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, r, http.StatusOK, updateSession)
-}
-
-func CreateSessionReview(w http.ResponseWriter, r *http.Request) {
-	var sessionReview model.SessionReview
-	err := parseJSONRequest(r, &sessionReview)
-	if err != nil {
-		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON session review")
-		return
-	}
-
-	mentorSession, err := database.CreateReviewAndUpdateSession(&sessionReview)
-	if err != nil {
-		writeMessageResponse(w, r, http.StatusInternalServerError, "Database error creating review")
-		return
-	}
-	writeJSONResponse(w, r, http.StatusCreated, mentorSession)
 }

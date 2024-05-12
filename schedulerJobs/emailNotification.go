@@ -13,7 +13,7 @@ func sendUpcomingSessionNotification() {
 	runJobWithTimeout(func(ctx context.Context) {
 		sessionCollection := database.GetCollection(database.SessionCollectionName)
 		currentTime := time.Now().UTC()
-		filterPipeline := database.GetSessionsForNotification(currentTime.Add(notificationTimeBeforeSession), currentTime.Add(2*notificationTimeBeforeSession))
+		filterPipeline := database.GetSessionsForNotificationPipeline(currentTime.Add(notificationTimeBeforeSession), currentTime.Add(2*notificationTimeBeforeSession))
 		cursor, err := sessionCollection.Aggregate(ctx, filterPipeline)
 		defer cursor.Close(ctx)
 		if err != nil {
@@ -26,7 +26,7 @@ func sendUpcomingSessionNotification() {
 			log.Printf("SendUpcomingSessionNotification: Failed to fetch sessions: %v", err)
 			return
 		}
-
+		log.Printf("sendUpcomingSessionNotification count: %v\n", len(sessions))
 		for _, session := range sessions {
 			timeForNotification := session.SessionTimeStart.Sub(currentTime) - notificationTimeBeforeSession
 			if timeForNotification <= 0 {

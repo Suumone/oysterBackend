@@ -18,6 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer database.CloseMongoDBConnection()
+	database.ConnectToS3()
 	schedulerJobs.StartJobs()
 	emailNotifications.InitMailClient()
 

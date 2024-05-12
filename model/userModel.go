@@ -2,13 +2,15 @@ package model
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"log"
+	"oysterProject/utils"
 	"time"
 )
 
 type User struct {
 	Id                     primitive.ObjectID   `json:"id" bson:"_id,omitempty"`
 	Username               string               `json:"name,omitempty" bson:"name,omitempty"`
-	ProfileImageId         primitive.ObjectID   `json:"-" bson:"profileImageId,omitempty"`
+	ProfileImageURL        string               `json:"-" bson:"profileImageURL,omitempty"`
 	Company                string               `json:"company" bson:"company,omitempty"`
 	Email                  string               `json:"email" bson:"email,omitempty"`
 	JobTitle               string               `json:"jobTitle" bson:"jobTitle,omitempty"`
@@ -30,7 +32,7 @@ type User struct {
 	IsApproved             bool                 `json:"isApproved" bson:"isApproved,omitempty"`
 	IsTopMentor            bool                 `json:"isTopMentor" bson:"isTopMentor,omitempty"`
 	AsMentor               bool                 `json:"asMentor" bson:"asMentor,omitempty"`
-	UserImage              *UserImage           `json:"userImage,omitempty" bson:"userImage,omitempty"`
+	UserImage              *UserImage           `json:"userImage,omitempty" bson:"-"`
 	UserMentorRequest      string               `json:"userMentorRequest" bson:"userMentorRequest,omitempty"`
 	Availability           []*Availability      `json:"availability,omitempty" bson:"availability,omitempty"`
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
@@ -63,12 +65,11 @@ type UserState struct {
 }
 
 type UserImage struct {
-	UserId         primitive.ObjectID `json:"userId" bson:"userId"`
-	Name           string             `json:"name,omitempty" bson:"name,omitempty"`
-	Email          string             `json:"-" bson:"email"`
-	Image          []byte             `json:"image" bson:"image"`
-	Extension      string             `json:"extension" bson:"extension"`
-	LatestTimeZone int                `json:"-" bson:"latestTimeZone"`
+	UserId          primitive.ObjectID `json:"userId" bson:"_id"`
+	Name            string             `json:"name,omitempty" bson:"name,omitempty"`
+	Email           string             `json:"-" bson:"email"`
+	ProfileImageURL string             `json:"profileImageURL" bson:"profileImageURL"`
+	LatestTimeZone  int                `json:"-" bson:"latestTimeZone"`
 }
 
 type Availability struct {
@@ -76,4 +77,28 @@ type Availability struct {
 	TimeFrom string `json:"timeFrom" bson:"timeFrom"`
 	TimeTo   string `json:"timeTo" bson:"timeTo"`
 	TimeZone int32  `json:"timeZone" bson:"timeZone"`
+}
+
+func UpdateTimezoneTime(availability *Availability) error {
+	timeZoneOffset := time.Duration(availability.TimeZone) * time.Minute
+	fullDateTimeFrom := "2006-01-02 " + availability.TimeFrom
+	fullDateTimeTo := "2006-01-02 " + availability.TimeTo
+	parsedTimeFrom, err := time.Parse(utils.DateLayout, fullDateTimeFrom)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeFrom. TimeFrom: %s, error:: %v\n", availability.TimeFrom, err)
+		return err
+	}
+	parsedTimeTo, err := time.Parse(utils.DateLayout, fullDateTimeTo)
+	if err != nil {
+		log.Printf("UpdateTimezoneTime: error parsedTimeTo. TimeTo: %s, error:: %v\n", availability.TimeTo, err)
+		return err
+	}
+	parsedTimeFrom = parsedTimeFrom.Add(timeZoneOffset)
+	availability.TimeFrom = parsedTimeFrom.UTC().Format(utils.TimeLayout)
+
+	parsedTimeTo = parsedTimeTo.Add(timeZoneOffset)
+	availability.TimeTo = parsedTimeTo.UTC().Format(utils.TimeLayout)
+
+	availability.TimeZone = -availability.TimeZone
+	return nil
 }
