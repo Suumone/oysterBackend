@@ -529,13 +529,13 @@ func SaveProfilePicture(userId primitive.ObjectID, fileBytes []byte, fileExtensi
 	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
-			"profileImageURL": ProfilePicturePathPrefix + destFilePath,
+			"profileImageURL": ProfilePicturePathPrefix + "/" + destFilePath,
 		},
 	}
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	if _, err := userCollection.UpdateOne(ctx, filter, update); err != nil {
-		log.Printf("Failed to upadet profileImageId for user (id: %s) error:%s\n", userId, err)
+		log.Printf("Failed to upadet profileImageURL for user (id: %s) error:%s\n", userId, err)
 		return err
 	}
 	return nil
@@ -577,8 +577,7 @@ func GetUserImages(userIds []primitive.ObjectID) ([]*model.UserImage, error) {
 	var result []*model.UserImage
 	for cursor.Next(ctx) {
 		var user model.UserImage
-		err = cursor.Decode(&user)
-		if err != nil {
+		if err = cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode user with image: %v", err)
 			return nil, err
 		}
