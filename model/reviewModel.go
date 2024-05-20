@@ -21,7 +21,7 @@ type Review struct {
 func (review *Review) FillDefaultsSessionReview(session *Session) {
 	review.Date = utils.TimePtr(time.Now())
 	review.ForFrontPage = false
-	review.IsPublic = false
+	review.IsPublic = true
 	review.SessionId = session.SessionId
 	review.MentorId = session.MentorId
 	review.MenteeId = session.MenteeId
@@ -29,7 +29,7 @@ func (review *Review) FillDefaultsSessionReview(session *Session) {
 
 func (review *Review) FillDefaultsMentorReview() {
 	review.Date = utils.TimePtr(time.Now())
-	review.ForFrontPage = true
+	review.ForFrontPage = false
 	review.IsPublic = true
 }
 
