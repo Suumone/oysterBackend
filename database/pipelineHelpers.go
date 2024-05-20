@@ -165,3 +165,55 @@ func GetSessionsForNotificationPipeline(filterTimeGt, filterTimeLte time.Time) b
 	}
 	return pipeline
 }
+
+func GetSessionsForReviewNotificationPipeline() bson.A {
+	pipeline := bson.A{
+		bson.D{
+			{"$match",
+				bson.D{
+					{"emailWasSent", false},
+					{"sessionStatus", model.Completed},
+				},
+			},
+		},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "menteeId"},
+					{"foreignField", "_id"},
+					{"as", "mentee"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentee"}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "mentorId"},
+					{"foreignField", "_id"},
+					{"as", "mentor"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentor"}}}},
+		bson.D{
+			{"$project",
+				bson.D{
+					{"mentorId", 1},
+					{"menteeId", 1},
+					{"sessionTimeStart", 1},
+					{"sessionTimeEnd", 1},
+					{"meetingLink", 1},
+					{"paymentDetails", 1},
+					{"menteeName", "$mentee.name"},
+					{"menteeEmail", "$mentee.email"},
+					{"mentorName", "$mentor.name"},
+					{"mentorEmail", "$mentor.email"},
+				},
+			},
+		},
+	}
+	return pipeline
+}

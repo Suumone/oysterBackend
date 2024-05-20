@@ -14,6 +14,7 @@ const (
 	sendUpcomingSessionInterval   = 1 * time.Hour
 	notificationTimeBeforeSession = 30 * time.Minute
 	dbTimeout                     = 5 * time.Minute
+	reviewsEmailInterval          = 15 * time.Minute
 )
 
 var (
@@ -24,6 +25,7 @@ func StartJobs() {
 	startAsyncJob(statusCalculation, statusCalculationInterval, 0)
 	startAsyncJob(deleteExpired, deleteExpiredSessionsInterval, 0)
 	startAsyncJob(sendUpcomingSessionNotification, sendUpcomingSessionInterval, notificationJobDelay)
+	startAsyncJob(sendReviewEmails, reviewsEmailInterval, 0)
 }
 
 func startAsyncJob(jobFunc func(), interval, delay time.Duration) {
