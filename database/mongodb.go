@@ -400,7 +400,7 @@ func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
 	}
 	var reviewerIDs []primitive.ObjectID
 	for _, review := range result {
-		reviewerIDs = append(reviewerIDs, review.MenteeId)
+		reviewerIDs = append(reviewerIDs, review.Reviewer.MenteeId)
 	}
 	userImagesMap := make(map[primitive.ObjectID]*model.UserImage)
 
@@ -416,8 +416,8 @@ func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
 	}
 
 	for i, review := range result {
-		if userImage, ok := userImagesMap[review.MenteeId]; ok {
-			result[i].MenteeImage = userImage
+		if userImage, ok := userImagesMap[review.Reviewer.MenteeId]; ok {
+			result[i].Reviewer.UserImage = userImage
 		}
 	}
 
