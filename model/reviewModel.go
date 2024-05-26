@@ -21,7 +21,7 @@ type Review struct {
 func (review *Review) FillDefaultsSessionReview(session *Session) {
 	review.Date = utils.TimePtr(time.Now())
 	review.ForFrontPage = false
-	review.IsPublic = false
+	review.IsPublic = true
 	review.SessionId = session.SessionId
 	review.MentorId = session.MentorId
 	review.MenteeId = session.MenteeId
@@ -29,7 +29,7 @@ func (review *Review) FillDefaultsSessionReview(session *Session) {
 
 func (review *Review) FillDefaultsMentorReview() {
 	review.Date = utils.TimePtr(time.Now())
-	review.ForFrontPage = true
+	review.ForFrontPage = false
 	review.IsPublic = true
 }
 
@@ -38,25 +38,24 @@ type UserWithReviews struct {
 	Reviews  []Reviews          `json:"reviews"`
 }
 
+type Reviewer struct {
+	MenteeId  primitive.ObjectID `json:"menteeId"`
+	Name      string             `json:"name"`
+	JobTitle  string             `json:"jobTitle"`
+	UserImage *UserImage         `json:"userImage,omitempty"`
+}
+
 type Reviews struct {
-	Reviewer struct {
-		MenteeId  primitive.ObjectID `json:"menteeId"`
-		Name      string             `json:"name"`
-		JobTitle  string             `json:"jobTitle"`
-		UserImage *UserImage         `json:"userImage,omitempty"`
-	} `json:"reviewer"`
-	Review string    `json:"review"`
-	Rating int       `json:"rating"`
-	Date   time.Time `json:"date"`
+	Reviewer *Reviewer `json:"reviewer"`
+	Review   string    `json:"review"`
+	Rating   int       `json:"rating"`
+	Date     time.Time `json:"date"`
 }
 
 type ReviewsForFrontPage struct {
-	MentorId    primitive.ObjectID `json:"mentorId" bson:"mentorId"`
-	MenteeName  string             `json:"menteeName"`
-	JobTitle    string             `json:"jobTitle,omitempty"`
-	MenteeImage *UserImage         `json:"menteeImage,omitempty"`
-	Review      string             `json:"review"`
-	Rating      int                `json:"rating,omitempty"`
-	Date        time.Time          `json:"date,omitempty"`
-	MenteeId    primitive.ObjectID `json:"menteeId" bson:"menteeId"`
+	MentorId primitive.ObjectID `json:"mentorId" bson:"mentorId"`
+	Review   string             `json:"review"`
+	Rating   int                `json:"rating,omitempty"`
+	Date     time.Time          `json:"date,omitempty"`
+	Reviewer *Reviewer          `json:"reviewer"`
 }

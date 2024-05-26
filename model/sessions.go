@@ -37,6 +37,7 @@ type Session struct {
 	MeetingLink         string             `json:"meetingLink" bson:"meetingLink,omitempty"`
 	MenteeReview        string             `json:"menteeReview" bson:"menteeReview,omitempty"`
 	MenteeRating        int                `json:"menteeRating" bson:"menteeRating,omitempty"`
+	EmailWasSent        bool               `json:"-" bson:"emailWasSent"`
 }
 
 type SessionResponse struct {

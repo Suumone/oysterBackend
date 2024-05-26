@@ -22,6 +22,8 @@ const (
 	mentorSessionRescheduledTemplateID     = "d-e1bf34de616946f1afc738bd898901b0"
 	sessionMenteeNotificationTemplateID    = "d-cee7fe5b36084acc8274d586384d90a2"
 	sessionMentorNotificationTemplateID    = "d-3a115ebf9fe94d57bc165a70669e0bde"
+	reviewMenteeEmailTemplateID            = "d-168655d6a3ce4462ba2f5a2f00b71b0f"
+	reviewMentorEmailTemplateID            = "d-05dd4350b278413e915e892298ccd6f1"
 )
 
 var (
@@ -151,4 +153,15 @@ func SendNotificationBeforeSession(session *model.SessionNotification) {
 
 	sendTemplateEmail(sessionMenteeNotificationTemplateID, session.MenteeName, session.MenteeEmail, dynamicTemplateData)
 	sendTemplateEmail(sessionMentorNotificationTemplateID, session.MentorName, session.MentorEmail, dynamicTemplateData)
+}
+
+func SendReviewEmails(session *model.SessionNotification) {
+	dynamicTemplateData := map[string]any{
+		"mentorName": session.MentorName,
+		"menteeName": session.MenteeName,
+		"sessionId":  session.SessionId,
+	}
+
+	sendTemplateEmail(reviewMenteeEmailTemplateID, session.MenteeName, session.MenteeEmail, dynamicTemplateData)
+	sendTemplateEmail(reviewMentorEmailTemplateID, session.MentorName, session.MentorEmail, dynamicTemplateData)
 }

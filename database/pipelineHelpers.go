@@ -84,9 +84,9 @@ func GetFrontPageReviewsPipeline() mongo.Pipeline {
 			{"review", 1},
 			{"rating", 1},
 			{"date", 1},
-			{"menteeName", "$reviewerInfo.name"},
-			{"jobTitle", "$reviewerInfo.jobTitle"},
-			{"menteeId", "$reviewerInfo._id"},
+			{"reviewer.name", "$reviewerInfo.name"},
+			{"reviewer.jobTitle", "$reviewerInfo.jobTitle"},
+			{"reviewer.menteeId", "$reviewerInfo._id"},
 		}}},
 	}
 	return pipeline
@@ -121,6 +121,58 @@ func GetSessionsForNotificationPipeline(filterTimeGt, filterTimeLte time.Time) b
 						{"$gt", filterTimeGt},
 						{"$lte", filterTimeLte},
 					}},
+				},
+			},
+		},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "menteeId"},
+					{"foreignField", "_id"},
+					{"as", "mentee"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentee"}}}},
+		bson.D{
+			{"$lookup",
+				bson.D{
+					{"from", "users"},
+					{"localField", "mentorId"},
+					{"foreignField", "_id"},
+					{"as", "mentor"},
+				},
+			},
+		},
+		bson.D{{"$unwind", bson.D{{"path", "$mentor"}}}},
+		bson.D{
+			{"$project",
+				bson.D{
+					{"mentorId", 1},
+					{"menteeId", 1},
+					{"sessionTimeStart", 1},
+					{"sessionTimeEnd", 1},
+					{"meetingLink", 1},
+					{"paymentDetails", 1},
+					{"menteeName", "$mentee.name"},
+					{"menteeEmail", "$mentee.email"},
+					{"mentorName", "$mentor.name"},
+					{"mentorEmail", "$mentor.email"},
+				},
+			},
+		},
+	}
+	return pipeline
+}
+
+func GetSessionsForReviewNotificationPipeline() bson.A {
+	pipeline := bson.A{
+		bson.D{
+			{"$match",
+				bson.D{
+					{"emailWasSent", false},
+					{"sessionStatus", model.Completed},
 				},
 			},
 		},
