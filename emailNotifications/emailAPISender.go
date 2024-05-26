@@ -3,8 +3,10 @@ package emailNotifications
 import (
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+	"go.mongodb.org/mongo-driver/bson"
 	"log"
 	"os"
+	"oysterProject/database"
 	"oysterProject/model"
 	"strings"
 )
@@ -164,4 +166,14 @@ func SendReviewEmails(session *model.SessionNotification) {
 
 	sendTemplateEmail(reviewMenteeEmailTemplateID, session.MenteeName, session.MenteeEmail, dynamicTemplateData)
 	sendTemplateEmail(reviewMentorEmailTemplateID, session.MentorName, session.MentorEmail, dynamicTemplateData)
+
+	filter := bson.M{"_id": session.SessionId}
+	updateOp := bson.M{
+		"$set": bson.M{
+			"emailWasSent": true,
+		},
+	}
+	if _, err := database.UpdateSession(filter, updateOp); err != nil {
+		log.Printf("SendReviewEmails: Failed to update session(%s) err: %v\n", filter["_id"], err)
+	}
 }
