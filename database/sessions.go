@@ -252,7 +252,7 @@ func CancelSession(sessionId, userId primitive.ObjectID) (*model.SessionResponse
 }
 
 func updateSessionAndPrepareResponse(filter bson.M, updateOp bson.M) (*model.SessionResponse, error) {
-	updatedSession, err := updateSession(filter, updateOp)
+	updatedSession, err := UpdateSession(filter, updateOp)
 	if err != nil {
 		return nil, err
 	}
@@ -260,10 +260,10 @@ func updateSessionAndPrepareResponse(filter bson.M, updateOp bson.M) (*model.Ses
 	if err != nil {
 		return nil, err
 	}
-	return createSessionResponse(mentorMenteeInfo, &updatedSession)
+	return createSessionResponse(mentorMenteeInfo, updatedSession)
 }
 
-func updateSession(filter bson.M, updateOp bson.M) (model.Session, error) {
+func UpdateSession(filter bson.M, updateOp bson.M) (*model.Session, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	collection := GetCollection(SessionCollectionName)
@@ -277,8 +277,8 @@ func updateSession(filter bson.M, updateOp bson.M) (model.Session, error) {
 
 	if err != nil {
 		log.Printf("Failed to update session(%s) err: %v\n", filter["_id"], err)
-		return model.Session{}, err
+		return nil, err
 	}
 
-	return updatedSession, nil
+	return &updatedSession, nil
 }
