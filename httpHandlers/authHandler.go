@@ -19,6 +19,7 @@ import (
 	"oysterProject/database"
 	"oysterProject/model"
 	"oysterProject/utils"
+	"strconv"
 	"time"
 )
 
@@ -154,7 +155,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		UserRegisterDate: utils.TimePtr(time.Now()),
 	}
 
-	user.Id, err = database.CreateMentor(&user)
+	user.Id, err = database.CreateUser(&user)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Error inserting user into database")
 		return
@@ -219,12 +220,12 @@ func getUserDataFromGoogle(code string) (*model.User, error) {
 }
 
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
-	oauthState, _ := r.Cookie(oauthStateCookieName)
-	if r.FormValue("state") != oauthState.Value {
-		log.Println("invalid oauth google state")
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
+	/*	oauthState, _ := r.Cookie(oauthStateCookieName)
+		if r.FormValue("state") != oauthState.Value {
+			log.Println("invalid oauth google state")
+			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			return
+		}*/
 
 	userInfo, err := getUserDataFromGoogle(r.FormValue("code"))
 	if err != nil {
@@ -237,7 +238,12 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		user.IsNewUser = true
 		user.UserRegisterDate = utils.TimePtr(time.Now())
-		user.Id, err = database.CreateMentor(userInfo)
+		user.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
+		if err != nil {
+			log.Println("HandleAuthCallback: asMentor flag was not received. Default false")
+			user.AsMentor = false
+		}
+		user.Id, err = database.CreateUser(userInfo)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return

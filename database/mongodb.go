@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-func CreateMentor(user *model.User) (primitive.ObjectID, error) {
+func CreateUser(user *model.User) (primitive.ObjectID, error) {
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
