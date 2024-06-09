@@ -36,6 +36,7 @@ func UploadUserImage(w http.ResponseWriter, r *http.Request) {
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !utils.Contains(allowedExtensions, ext) {
+		log.Printf("Not allowed extension: %s", ext)
 		writeMessageResponse(w, r, http.StatusBadRequest, "File type not allowed")
 		return
 	}

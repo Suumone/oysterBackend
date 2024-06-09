@@ -75,6 +75,7 @@ func getOffsetAndLimit(params url.Values) (int, int, error) {
 func getFilterForMentorList(params url.Values, userId primitive.ObjectID) (bson.M, error) {
 	filter := bson.M{
 		"isApproved": true,
+		"isPublic":   true,
 	}
 
 	for key, values := range params {
@@ -107,6 +108,7 @@ func getFilterForTopMentorList() bson.M {
 	return bson.M{
 		"isApproved":  true,
 		"isTopMentor": true,
+		"isPublic":    true,
 	}
 }
 
