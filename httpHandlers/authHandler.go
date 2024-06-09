@@ -189,12 +189,15 @@ func generateStateOauthCookie(w http.ResponseWriter) (string, error) {
 }
 
 func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Redirect URL %s:\n", conf.RedirectURL)
 	oauthState, err := generateStateOauthCookie(w)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Failed to generate state")
 		return
 	}
+
 	url := conf.AuthCodeURL(oauthState)
+	log.Printf("Final URL %s:\n", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -236,14 +239,14 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	user, err := database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		user.IsNewUser = true
-		user.UserRegisterDate = utils.TimePtr(time.Now())
-		user.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
+		userInfo.IsNewUser = true
+		userInfo.UserRegisterDate = utils.TimePtr(time.Now())
+		userInfo.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
 		if err != nil {
 			log.Println("HandleAuthCallback: asMentor flag was not received. Default false")
 			user.AsMentor = false
 		}
-		user.Id, err = database.CreateUser(userInfo)
+		userInfo.Id, err = database.CreateUser(userInfo)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return
