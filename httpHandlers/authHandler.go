@@ -30,6 +30,7 @@ const (
 	sessionCookieName     = "sessionId"
 	SessionHeaderName     = "AuthSessionId"
 	oauthStateCookieName  = "oauthState"
+	userSessionInContext  = "userSession"
 )
 
 var (
@@ -43,7 +44,7 @@ var (
 )
 
 func getUserSessionFromRequest(r *http.Request) *model.AuthSession {
-	userSession, ok := r.Context().Value("userSession").(*model.AuthSession)
+	userSession, ok := r.Context().Value(userSessionInContext).(*model.AuthSession)
 	if !ok {
 		log.Printf("getUserSessionFromRequest: no auth session in context")
 		return nil
@@ -72,7 +73,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userSession", userSession)
+		ctx := context.WithValue(r.Context(), userSessionInContext, userSession)
 		writeHeaderValue(w, SessionHeaderName, userSession.SessionId.Hex())
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -148,11 +149,12 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := model.User{
-		Email:            authData.Email,
-		Password:         string(hashedPassword),
-		IsNewUser:        true,
-		AsMentor:         authData.AsMentor,
-		UserRegisterDate: utils.TimePtr(time.Now()),
+		Email:                authData.Email,
+		Password:             string(hashedPassword),
+		IsNewUser:            true,
+		AsMentor:             authData.AsMentor,
+		ApprovedEmailWasSent: false,
+		UserRegisterDate:     utils.TimePtr(time.Now()),
 	}
 
 	user.Id, err = database.CreateUser(&user)
@@ -189,12 +191,15 @@ func generateStateOauthCookie(w http.ResponseWriter) (string, error) {
 }
 
 func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Redirect URL %s:\n", conf.RedirectURL)
 	oauthState, err := generateStateOauthCookie(w)
 	if err != nil {
 		writeMessageResponse(w, r, http.StatusInternalServerError, "Failed to generate state")
 		return
 	}
+
 	url := conf.AuthCodeURL(oauthState)
+	log.Printf("Final URL %s:\n", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -236,14 +241,15 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 
 	user, err := database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		user.IsNewUser = true
-		user.UserRegisterDate = utils.TimePtr(time.Now())
-		user.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
+		userInfo.IsNewUser = true
+		userInfo.ApprovedEmailWasSent = false
+		userInfo.UserRegisterDate = utils.TimePtr(time.Now())
+		userInfo.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
 		if err != nil {
 			log.Println("HandleAuthCallback: asMentor flag was not received. Default false")
 			user.AsMentor = false
 		}
-		user.Id, err = database.CreateUser(userInfo)
+		userInfo.Id, err = database.CreateUser(userInfo)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusInternalServerError, "Database insert error: "+err.Error())
 			return

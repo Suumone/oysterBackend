@@ -277,3 +277,19 @@ func GetListValues(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSONResponse(w, r, http.StatusOK, listOfValues)
 }
+
+func UpdateVisibility(w http.ResponseWriter, r *http.Request) {
+	var userForUpdate model.UserVisibility
+	if err := parseJSONRequest(r, &userForUpdate); err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	userForUpdate.UserId = getUserSessionFromRequest(r).UserId
+
+	err := database.UpdateIsPublicStatus(userForUpdate)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error updating user visibility")
+		return
+	}
+	writeMessageResponse(w, r, http.StatusOK, "Profile visibility updated successfully")
+}
