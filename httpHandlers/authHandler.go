@@ -30,6 +30,7 @@ const (
 	sessionCookieName     = "sessionId"
 	SessionHeaderName     = "AuthSessionId"
 	oauthStateCookieName  = "oauthState"
+	userSessionInContext  = "userSession"
 )
 
 var (
@@ -43,7 +44,7 @@ var (
 )
 
 func getUserSessionFromRequest(r *http.Request) *model.AuthSession {
-	userSession, ok := r.Context().Value("userSession").(*model.AuthSession)
+	userSession, ok := r.Context().Value(userSessionInContext).(*model.AuthSession)
 	if !ok {
 		log.Printf("getUserSessionFromRequest: no auth session in context")
 		return nil
@@ -72,7 +73,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userSession", userSession)
+		ctx := context.WithValue(r.Context(), userSessionInContext, userSession)
 		writeHeaderValue(w, SessionHeaderName, userSession.SessionId.Hex())
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
