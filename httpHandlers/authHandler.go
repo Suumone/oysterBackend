@@ -149,11 +149,12 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := model.User{
-		Email:            authData.Email,
-		Password:         string(hashedPassword),
-		IsNewUser:        true,
-		AsMentor:         authData.AsMentor,
-		UserRegisterDate: utils.TimePtr(time.Now()),
+		Email:                authData.Email,
+		Password:             string(hashedPassword),
+		IsNewUser:            true,
+		AsMentor:             authData.AsMentor,
+		ApprovedEmailWasSent: false,
+		UserRegisterDate:     utils.TimePtr(time.Now()),
 	}
 
 	user.Id, err = database.CreateUser(&user)
@@ -241,6 +242,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	user, err := database.GetUserByEmail(userInfo.Email)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.IsNewUser = true
+		userInfo.ApprovedEmailWasSent = false
 		userInfo.UserRegisterDate = utils.TimePtr(time.Now())
 		userInfo.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
 		if err != nil {

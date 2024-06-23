@@ -26,6 +26,7 @@ const (
 	sessionMentorNotificationTemplateID    = "d-3a115ebf9fe94d57bc165a70669e0bde"
 	reviewMenteeEmailTemplateID            = "d-168655d6a3ce4462ba2f5a2f00b71b0f"
 	reviewMentorEmailTemplateID            = "d-05dd4350b278413e915e892298ccd6f1"
+	mentorApprovedEmailTemplateID          = "d-06042ffe71e14c6fb68b7784fe6a8c01"
 )
 
 var (
@@ -175,5 +176,16 @@ func SendReviewEmails(session *model.SessionNotification) {
 	}
 	if _, err := database.UpdateSession(filter, updateOp); err != nil {
 		log.Printf("SendReviewEmails: Failed to update session(%s) err: %v\n", filter["_id"], err)
+	}
+}
+
+func SendApprovedEmail(user *model.User) {
+	dynamicTemplateData := map[string]any{
+		"mentorName": user.Username,
+	}
+	sendTemplateEmail(mentorApprovedEmailTemplateID, user.Username, user.Email, dynamicTemplateData)
+	user.ApprovedEmailWasSent = true //todo create plain update user
+	if _, err := database.UpdateAndGetUser(user, user.Id); err != nil {
+		log.Printf("SendApprovedEmail: Failed to update user(%s) err: %v\n", user.Id.Hex(), err)
 	}
 }
