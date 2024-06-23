@@ -38,3 +38,8 @@ type ValuesToSelect struct {
 	Name   string   `json:"name" bson:"name"`
 	Values []string `json:"values" bson:"values"`
 }
+
+type UserVisibility struct {
+	UserId   primitive.ObjectID `json:"userId" bson:"_id"`
+	IsPublic bool               `json:"isPublic" bson:"isPublic"`
+}

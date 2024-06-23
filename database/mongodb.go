@@ -713,3 +713,22 @@ func UpdateMentorRequest(request string, id primitive.ObjectID) {
 
 	log.Printf("Mentor request for user(id: %s) updated successfully!\n", id.Hex())
 }
+
+func UpdateIsPublicStatus(user model.UserVisibility) error {
+	collection := GetCollection(UserCollectionName)
+	filter := bson.M{"_id": user.UserId}
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	update := bson.M{
+		"$set": bson.M{
+			"isPublic": user.IsPublic,
+		},
+	}
+	_, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Printf("Failed to update isPublic for user(%s): %v\n", user.UserId.Hex(), err)
+		return err
+	}
+
+	return nil
+}
