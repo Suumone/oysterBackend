@@ -39,6 +39,7 @@ type User struct {
 	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate,omitempty"`
 	LatestTimeZone         int                  `json:"latestTimeZone" bson:"latestTimeZone,omitempty"`
 	IsPublic               bool                 `json:"isPublic" bson:"isPublic"`
+	ApprovedEmailWasSent   bool                 `json:"-" bson:"approvedEmailWasSent"`
 }
 
 type CountryDescription struct {
