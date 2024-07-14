@@ -199,7 +199,6 @@ func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url := conf.AuthCodeURL(oauthState)
-	log.Printf("Final URL %s:\n", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -225,12 +224,12 @@ func getUserDataFromGoogle(code string) (*model.User, error) {
 }
 
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
-	/*	oauthState, _ := r.Cookie(oauthStateCookieName)
-		if r.FormValue("state") != oauthState.Value {
-			log.Println("invalid oauth google state")
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-			return
-		}*/
+	oauthState, _ := r.Cookie(oauthStateCookieName)
+	if r.FormValue("state") != oauthState.Value {
+		log.Println("invalid oauth google state")
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
 
 	userInfo, err := getUserDataFromGoogle(r.FormValue("code"))
 	if err != nil {
