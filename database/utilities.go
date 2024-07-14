@@ -22,6 +22,7 @@ const (
 // todo get from database
 var fieldTypes = map[string]string{
 	"language":                   "array",
+	"company":                    "array",
 	"countryDescription.country": "array",
 	"mentorsTopics.topic":        "array",
 	"areaOfExpertise.area":       "array",

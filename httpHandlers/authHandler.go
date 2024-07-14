@@ -154,6 +154,7 @@ func HandleEmailPassAuth(w http.ResponseWriter, r *http.Request) {
 		IsNewUser:            true,
 		AsMentor:             authData.AsMentor,
 		ApprovedEmailWasSent: false,
+		IsPublic:             true,
 		UserRegisterDate:     utils.TimePtr(time.Now()),
 	}
 
@@ -199,7 +200,6 @@ func HandleGoogleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	url := conf.AuthCodeURL(oauthState)
-	log.Printf("Final URL %s:\n", url)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
@@ -243,6 +243,7 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		userInfo.IsNewUser = true
 		userInfo.ApprovedEmailWasSent = false
+		userInfo.IsPublic = true
 		userInfo.UserRegisterDate = utils.TimePtr(time.Now())
 		userInfo.AsMentor, err = strconv.ParseBool(r.FormValue("asMentor"))
 		if err != nil {
