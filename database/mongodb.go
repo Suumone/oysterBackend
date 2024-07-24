@@ -16,6 +16,11 @@ import (
 	"strings"
 )
 
+const (
+	limitKey  = "limit"
+	offsetKey = "offset"
+)
+
 func CreateUser(user *model.User) (primitive.ObjectID, error) {
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
@@ -54,16 +59,16 @@ func GetTopMentors(params url.Values) ([]*model.User, error) {
 func getOffsetAndLimit(params url.Values) (int, int, error) {
 	var offset int
 	var err error
-	if params.Get("offset") != "" {
-		offset, err = strconv.Atoi(params.Get("offset"))
+	if params.Get(offsetKey) != "" {
+		offset, err = strconv.Atoi(params.Get(offsetKey))
 		if err != nil {
 			log.Printf("Error reading offset parameter: %v\n\n", err)
 			return 0, 0, err
 		}
 	}
 	var limit int
-	if params.Get("limit") != "" {
-		limit, err = strconv.Atoi(params.Get("limit"))
+	if params.Get(limitKey) != "" {
+		limit, err = strconv.Atoi(params.Get(limitKey))
 		if err != nil {
 			log.Printf("Error reading limit parameter: %v\n\n", err)
 			return 0, 0, err
@@ -91,7 +96,7 @@ func getFilterForMentorList(params url.Values, userId primitive.ObjectID) (bson.
 			filter[key] = bson.M{"$regex": values[0], "$options": "i"}
 		}
 	}
-	if !userId.IsZero() {
+	if !userId.IsZero() && !hasExtraKeys(params) {
 		bestMentors, err := getUserBestMentorIds(userId)
 		if err != nil {
 			return nil, err
@@ -102,6 +107,15 @@ func getFilterForMentorList(params url.Values, userId primitive.ObjectID) (bson.
 	}
 	log.Printf("MongoDB filter:%s\n", filter)
 	return filter, nil
+}
+
+func hasExtraKeys(keys map[string][]string) bool {
+	for key := range keys {
+		if key != limitKey && key != offsetKey {
+			return true
+		}
+	}
+	return false
 }
 
 func getFilterForTopMentorList() bson.M {
