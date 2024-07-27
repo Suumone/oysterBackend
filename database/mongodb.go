@@ -145,11 +145,10 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D, r *http
 	}
 
 	users, err := findUsers(ctx, collection, filter, opts)
+	wg.Wait()
 	if err != nil {
 		return nil, err
 	}
-
-	wg.Wait()
 	return users, nil
 }
 
@@ -244,7 +243,7 @@ func GetUserByID(id primitive.ObjectID) (*model.User, error) {
 	return &user, err
 }
 
-func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
+func GetMentorReviewsByID(id string, r *http.Request) (*model.UserWithReviews, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	usersColl := GetCollection(UserCollectionName)
@@ -253,9 +252,44 @@ func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
 		log.Printf("GetMentorReviewsByID: Failed to convert mentor id(%s): %v", id, err)
 		return nil, err
 	}
-
 	mentorListPipeline := GetMentorReviewsPipeline(idToFind)
-	cursor, err := usersColl.Aggregate(ctx, mentorListPipeline)
+
+	var wg sync.WaitGroup
+	if r != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			countDocuments(r, usersColl, mentorListPipeline)
+			log.Println(r.Context())
+		}()
+	}
+
+	user, err := findUserWithReviews(ctx, usersColl, mentorListPipeline)
+	wg.Wait()
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func extractReviewerIDs(reviews []model.Reviews) []primitive.ObjectID {
+	var reviewerIDs []primitive.ObjectID
+	for _, review := range reviews {
+		reviewerIDs = append(reviewerIDs, review.Reviewer.MenteeId)
+	}
+	return reviewerIDs
+}
+
+func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.ObjectID]*model.UserImage) {
+	for i, review := range user.Reviews {
+		if userImage, ok := userImagesMap[review.Reviewer.MenteeId]; ok {
+			user.Reviews[i].Reviewer.UserImage = userImage
+		}
+	}
+}
+
+func findUserWithReviews(ctx context.Context, collection *mongo.Collection, mentorListPipeline bson.A) (*model.UserWithReviews, error) {
+	cursor, err := collection.Aggregate(ctx, mentorListPipeline)
 	if err != nil {
 		log.Printf("GetMentorReviewsByID: Failed to decode document: %v", err)
 		return nil, err
@@ -263,7 +297,7 @@ func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
 	defer cursor.Close(ctx)
 	var user model.UserWithReviews
 	for cursor.Next(ctx) {
-		if err := cursor.Decode(&user); err != nil {
+		if err = cursor.Decode(&user); err != nil {
 			log.Printf("GetMentorReviewsByID: Failed to decode document: %v", err)
 			return nil, err
 		}
@@ -284,22 +318,6 @@ func GetMentorReviewsByID(id string) (*model.UserWithReviews, error) {
 
 	updateUserReviews(user, userImagesMap)
 	return &user, nil
-}
-
-func extractReviewerIDs(reviews []model.Reviews) []primitive.ObjectID {
-	var reviewerIDs []primitive.ObjectID
-	for _, review := range reviews {
-		reviewerIDs = append(reviewerIDs, review.Reviewer.MenteeId)
-	}
-	return reviewerIDs
-}
-
-func updateUserReviews(user model.UserWithReviews, userImagesMap map[primitive.ObjectID]*model.UserImage) {
-	for i, review := range user.Reviews {
-		if userImage, ok := userImagesMap[review.Reviewer.MenteeId]; ok {
-			user.Reviews[i].Reviewer.UserImage = userImage
-		}
-	}
 }
 
 func UpdateAndGetUser(user *model.User, id primitive.ObjectID) (*model.User, error) {
@@ -421,7 +439,7 @@ func extractFieldDataFromMeta(meta map[string]interface{}) (map[string]interface
 	return fieldData, nil
 }
 
-func GetReviewsForFrontPage() ([]*model.ReviewsForFrontPage, error) {
+func GetReviewsForFrontPage(*http.Request) ([]*model.ReviewsForFrontPage, error) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	reviewColl := GetCollection(ReviewCollectionName)
@@ -775,7 +793,7 @@ func UpdateIsPublicStatus(user model.UserVisibility) error {
 	return nil
 }
 
-func countDocuments(r *http.Request, collection *mongo.Collection, filter bson.M) {
+func countDocuments(r *http.Request, collection *mongo.Collection, filter interface{}) {
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
 	count, err := collection.CountDocuments(ctx, filter)

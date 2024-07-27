@@ -98,14 +98,14 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
-		userWithReviews, err := database.GetMentorReviewsByID(mentorId)
+		userWithReviews, err := database.GetMentorReviewsByID(mentorId, r)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
 		}
 		writeJSONResponse(w, r, http.StatusOK, userWithReviews)
 	} else {
-		reviews, err := database.GetReviewsForFrontPage()
+		reviews, err := database.GetReviewsForFrontPage(r)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
