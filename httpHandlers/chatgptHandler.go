@@ -114,7 +114,7 @@ func CalculateBestMentors(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendRequestToChatgpt(request string, userId primitive.ObjectID) ([]model.MentorForRequest, error) {
-	mentors, err := database.GetMentors(nil, primitive.NilObjectID)
+	mentors, err := database.GetMentors(nil, primitive.NilObjectID, nil)
 	if err != nil {
 		return nil, errors.New("error getting mentors from database")
 	}
@@ -161,7 +161,7 @@ func SendRequestToChatgpt(request string, userId primitive.ObjectID) ([]model.Me
 		return filteredMentors, nil
 	} else {
 		var result []model.MentorForRequest
-		mentorsFromDb, err := database.GetMentors(url.Values{"offset": []string{"0"}, "limit": []string{"3"}}, primitive.NilObjectID)
+		mentorsFromDb, err := database.GetMentors(url.Values{"offset": []string{"0"}, "limit": []string{"3"}}, primitive.NilObjectID, nil)
 		if err != nil {
 			return result, nil
 		}
