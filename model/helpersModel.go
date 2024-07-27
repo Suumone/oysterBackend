@@ -43,3 +43,8 @@ type UserVisibility struct {
 	UserId   primitive.ObjectID `json:"userId" bson:"_id"`
 	IsPublic bool               `json:"isPublic" bson:"isPublic"`
 }
+
+type ApiResponse struct {
+	Total int64       `json:"total"`
+	Data  interface{} `json:"data"`
+}

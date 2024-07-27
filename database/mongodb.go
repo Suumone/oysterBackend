@@ -9,11 +9,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"net/http"
 	"net/url"
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -34,7 +36,7 @@ func CreateUser(user *model.User) (primitive.ObjectID, error) {
 	return doc.InsertedID.(primitive.ObjectID), nil
 }
 
-func GetMentors(params url.Values, userId primitive.ObjectID) ([]*model.User, error) {
+func GetMentors(params url.Values, userId primitive.ObjectID, r *http.Request) ([]*model.User, error) {
 	filter, err := getFilterForMentorList(params, userId)
 	if err != nil {
 		return nil, err
@@ -43,17 +45,17 @@ func GetMentors(params url.Values, userId primitive.ObjectID) ([]*model.User, er
 	if err != nil {
 		return nil, err
 	}
-	return fetchMentors(filter, offset, limit, nil)
+	return fetchMentors(filter, offset, limit, nil, r)
 }
 
-func GetTopMentors(params url.Values) ([]*model.User, error) {
+func GetTopMentors(params url.Values, r *http.Request) ([]*model.User, error) {
 	filter := getFilterForTopMentorList()
 	offset, limit, err := getOffsetAndLimit(params)
 	if err != nil {
 		return nil, err
 	}
 	sortBson := bson.D{{"topMentorOrder", 1}}
-	return fetchMentors(filter, offset, limit, sortBson)
+	return fetchMentors(filter, offset, limit, sortBson, r)
 }
 
 func getOffsetAndLimit(params url.Values) (int, int, error) {
@@ -126,10 +128,32 @@ func getFilterForTopMentorList() bson.M {
 	}
 }
 
-func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*model.User, error) {
+func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D, r *http.Request) ([]*model.User, error) {
 	collection := GetCollection(UserCollectionName)
 	ctx, cancel := withTimeout(context.Background())
 	defer cancel()
+	opts := createFindOptions(offset, limit, sortBson)
+
+	var wg sync.WaitGroup
+	if r != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			countDocuments(r, collection, filter)
+			log.Println(r.Context())
+		}()
+	}
+
+	users, err := findUsers(ctx, collection, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	wg.Wait()
+	return users, nil
+}
+
+func createFindOptions(offset int, limit int, sortBson bson.D) *options.FindOptions {
 	opts := options.Find()
 	if offset != 0 {
 		opts = opts.SetSkip(int64(offset))
@@ -140,6 +164,10 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*mod
 	if sortBson != nil {
 		opts.SetSort(sortBson)
 	}
+	return opts
+}
+
+func findUsers(ctx context.Context, collection *mongo.Collection, filter bson.M, opts *options.FindOptions) ([]*model.User, error) {
 	cursor, err := collection.Find(ctx, filter, opts)
 	if err != nil {
 		log.Printf("Failed to find documents: %v\n", err)
@@ -150,14 +178,14 @@ func fetchMentors(filter bson.M, offset int, limit int, sortBson bson.D) ([]*mod
 	var users []*model.User
 	for cursor.Next(ctx) {
 		var user model.User
-		if err := cursor.Decode(&user); err != nil {
+		if err = cursor.Decode(&user); err != nil {
 			log.Printf("Failed to decode document: %v", err)
 			return nil, err
 		} else {
 			users = append(users, &user)
 		}
 	}
-	if err := cursor.Err(); err != nil {
+	if err = cursor.Err(); err != nil {
 		log.Printf("Cursor error: %v", err)
 		return nil, err
 	}
@@ -482,7 +510,7 @@ func updatePassword(userId primitive.ObjectID, plainPassword string) error {
 	filter := bson.M{"_id": userId}
 	update := bson.M{
 		"$set": bson.M{
-			"password": hashedPassword,
+			"password": string(hashedPassword),
 		},
 	}
 	ctx, cancel := withTimeout(context.Background())
@@ -745,4 +773,17 @@ func UpdateIsPublicStatus(user model.UserVisibility) error {
 	}
 
 	return nil
+}
+
+func countDocuments(r *http.Request, collection *mongo.Collection, filter bson.M) {
+	ctx, cancel := withTimeout(context.Background())
+	defer cancel()
+	count, err := collection.CountDocuments(ctx, filter)
+	if err != nil {
+		log.Printf("Failed to find documents: %v\n", err)
+		count = 0
+	}
+	ctx2 := context.WithValue(r.Context(), utils.TotalCountContext, count)
+	*r = *r.WithContext(ctx2)
+	log.Println(ctx2)
 }

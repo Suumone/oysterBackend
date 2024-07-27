@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"oysterProject/model"
+	"oysterProject/utils"
 	"time"
 )
 
@@ -24,7 +26,7 @@ func writeMessageResponse(w http.ResponseWriter, r *http.Request, status int, me
 
 func writeJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
 	render.Status(r, status)
-	render.JSON(w, r, payload)
+	render.JSON(w, r, wrapResponseBody(payload, r))
 }
 
 func writeSessionCookie(w http.ResponseWriter, name, value string, time time.Time) {
@@ -52,4 +54,15 @@ func deleteCookie(w http.ResponseWriter, name string) {
 		Expires: time.Now().Add(-expirationTime),
 	}
 	http.SetCookie(w, &cookie)
+}
+
+func wrapResponseBody(payload interface{}, r *http.Request) *model.ApiResponse {
+	apiResponse := &model.ApiResponse{Data: payload}
+	count, ok := r.Context().Value(utils.TotalCountContext).(int64)
+	if ok {
+		apiResponse.Total = count
+	} else {
+		apiResponse.Total = 1
+	}
+	return apiResponse
 }

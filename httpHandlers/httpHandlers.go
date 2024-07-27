@@ -21,7 +21,7 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	users, err := database.GetMentors(queryParameters, userSession.UserId)
+	users, err := database.GetMentors(queryParameters, userSession.UserId, r)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
@@ -201,7 +201,7 @@ func updateUsersTimezoneTime(user *model.User) {
 
 func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	users, err := database.GetTopMentors(queryParameters)
+	users, err := database.GetTopMentors(queryParameters, r)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
