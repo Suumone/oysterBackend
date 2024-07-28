@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	ImageLimitSizeMB = 1024 * 1024 * 5 //5 MB
-	DateLayout       = "2006-01-02 15:04"
-	TimeLayout       = "15:04"
+	ImageLimitSizeMB  = 1024 * 1024 * 5 //5 MB
+	DateLayout        = "2006-01-02 15:04"
+	TimeLayout        = "15:04"
+	TotalCountContext = "totalCount"
 )
 
 func IsEmptyStruct(input interface{}) bool {
@@ -59,4 +60,13 @@ func convertUTCtoLocal(utcTime *time.Time, offset int) time.Time {
 	loc := time.FixedZone("Local Timezone", offset)
 	localTime := utcTime.In(loc)
 	return localTime
+}
+
+func IsSliceAndLength(data interface{}) (bool, int, error) {
+	value := reflect.ValueOf(data)
+	if value.Kind() == reflect.Slice {
+		return true, value.Len(), nil
+	} else {
+		return false, 0, NotASlice
+	}
 }

@@ -21,7 +21,7 @@ func GetMentorsList(w http.ResponseWriter, r *http.Request) {
 		writeMessageResponse(w, r, http.StatusBadRequest, "No user session info was found")
 		return
 	}
-	users, err := database.GetMentors(queryParameters, userSession.UserId)
+	users, err := database.GetMentors(queryParameters, userSession.UserId, r)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
@@ -98,14 +98,14 @@ func GetMentorReviews(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
 	mentorId := queryParameters.Get("mentorId")
 	if len(mentorId) > 0 {
-		userWithReviews, err := database.GetMentorReviewsByID(mentorId)
+		userWithReviews, err := database.GetMentorReviewsByID(mentorId, r)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
 		}
 		writeJSONResponse(w, r, http.StatusOK, userWithReviews)
 	} else {
-		reviews, err := database.GetReviewsForFrontPage()
+		reviews, err := database.GetReviewsForFrontPage(r)
 		if err != nil {
 			writeMessageResponse(w, r, http.StatusNotFound, "Reviews not found")
 			return
@@ -201,7 +201,7 @@ func updateUsersTimezoneTime(user *model.User) {
 
 func GetTopMentors(w http.ResponseWriter, r *http.Request) {
 	queryParameters := r.URL.Query()
-	users, err := database.GetTopMentors(queryParameters)
+	users, err := database.GetTopMentors(queryParameters, r)
 	if err != nil {
 		if errors.Is(err, strconv.ErrSyntax) {
 			writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing offset and limit")
