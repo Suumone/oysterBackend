@@ -56,6 +56,7 @@ func ConfigureRoutes(r *chi.Mux) {
 	})
 
 	r.With(httpHandlers.AuthMiddleware).Post("/createPublicReview", httpHandlers.CreatePublicReview)
+	r.Post("/saveAnalytics", httpHandlers.SaveAnalytics)
 }
 
 func ConfigureCors(r *chi.Mux) {

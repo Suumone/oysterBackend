@@ -17,6 +17,7 @@ const (
 	AuthSessionCollectionName     = "authSessions"
 	ValuesForSelectCollectionName = "selectValues"
 	FieldInfoCollectionName       = "fieldInfo"
+	UserAnalyticsCollectionName   = "userAnalytics"
 )
 
 // todo get from database

@@ -12,6 +12,7 @@ import (
 	"oysterProject/model"
 	"oysterProject/utils"
 	"strconv"
+	"time"
 )
 
 func GetMentorsList(w http.ResponseWriter, r *http.Request) {
@@ -292,4 +293,19 @@ func UpdateVisibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeMessageResponse(w, r, http.StatusOK, "Profile visibility updated successfully")
+}
+
+func SaveAnalytics(w http.ResponseWriter, r *http.Request) {
+	var userAnalytics model.UserAnalytics
+	if err := parseJSONRequest(r, &userAnalytics); err != nil {
+		writeMessageResponse(w, r, http.StatusBadRequest, "Error parsing JSON from request")
+		return
+	}
+	userAnalytics.TimeStamp = utils.TimePtr(time.Now())
+	err := database.SaveAnalytics(&userAnalytics)
+	if err != nil {
+		writeMessageResponse(w, r, http.StatusInternalServerError, "Error saving user analytics in db")
+		return
+	}
+	writeMessageResponse(w, r, http.StatusOK, "User analytics saved successfully")
 }

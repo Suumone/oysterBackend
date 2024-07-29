@@ -801,7 +801,6 @@ func countDocuments(r *http.Request, collection *mongo.Collection, filter interf
 		log.Printf("Failed to find documents: %v\n", err)
 		count = 0
 	}
-	ctx2 := context.WithValue(r.Context(), utils.TotalCountContext, count)
-	*r = *r.WithContext(ctx2)
-	log.Println(ctx2)
+	newHttpContext := context.WithValue(r.Context(), utils.TotalCountContext, count)
+	*r = *r.WithContext(newHttpContext)
 }
