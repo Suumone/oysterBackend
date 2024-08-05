@@ -11,7 +11,7 @@ type ChatgptHttpPayload struct {
 
 type MentorForRequest struct {
 	MentorId           string               `json:"id"`
-	AreaOfExpertise    []AreaOfExpertise    `json:"areaOfExpertise,omitemptyw"`
+	AreaOfExpertise    []AreaOfExpertise    `json:"areaOfExpertise,omitempty"`
 	Company            string               `json:"company,omitempty"`
 	CountryDescription []CountryDescription `json:"countryDescription,omitempty"`
 	Prices             []Price              `json:"prices,omitempty"`
