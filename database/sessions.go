@@ -125,7 +125,9 @@ func GetUserSessions(userId primitive.ObjectID, asMentor bool) ([]*model.Session
 	defer cancel()
 	collection := GetCollection(SessionCollectionName)
 	filter := buildSessionFilter(userId, asMentor)
-	cursor, err := collection.Find(ctx, filter)
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{"sessionTimeStart", 1}})
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, nil
 	} else if err != nil {
@@ -142,8 +144,9 @@ func GetUserUpcomingSessions(userId primitive.ObjectID, asMentor bool) ([]*model
 	collection := GetCollection(SessionCollectionName)
 	filter := buildSessionFilter(userId, asMentor)
 	filter["sessionStatus"] = bson.M{"$lte": model.Confirmed}
-
-	cursor, err := collection.Find(ctx, filter)
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{"sessionTimeStart", 1}})
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, nil
 	} else if err != nil {
