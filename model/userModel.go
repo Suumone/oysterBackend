@@ -38,7 +38,7 @@ type User struct {
 	MeetingLink            string               `json:"meetingLink" bson:"meetingLink,omitempty"`
 	UserRegisterDate       *time.Time           `json:"userRegisterDate" bson:"userRegisterDate,omitempty"`
 	LatestTimeZone         int                  `json:"latestTimeZone" bson:"latestTimeZone,omitempty"`
-	IsPublic               bool                 `json:"isPublic" bson:"isPublic"`
+	IsPublic               bool                 `json:"isPublic,omitempty" bson:"isPublic,omitempty"`
 	ApprovedEmailWasSent   bool                 `json:"-" bson:"approvedEmailWasSent"`
 }
 
